@@ -1,0 +1,52 @@
+camera []
+renderer []
+controls [camera, renderer]
+lighting []
+geometries
+materials
+objects
+scene [lighting, objects]
+
+Constants:
+acceleration due to gravity
+friction coefficient
+initial projectile velocity
+maximum number of objects
+
+physics.js:
+setup physics config
+
+objects.js + geometries.js:
+create object function (prisms, spheres, cones, etc)
+  mass, halfExtents, position, quaternion, material
+create rigid body function
+create debris function
+remove debris function
+is projectile a special object? it shouldn't be
+
+materials.js:
+materials (lighting model, colour, texture)
+
+dynamics.js:
+step function
+step world
+update rigid bodies
+  update position, quaternion, collided status (isCollided)
+update manifolds?
+  update data, breakable and collided
+  get contacts?
+    calculate impulse
+  apply fracture
+  get debris
+    apply velocity and angular velocity to fragments
+  get objects
+    apply velocity and angular velocity to fragments
+  remove exceeded debris
+
+onWindowResize + other event listeners
+animate and render functions
+
+Demo:
+Inertia (no dest.) (high mass objects, low mass objects)
+Dominoes (no dest.) (loops for straights and curves)
+Shooting stuff (highly destructible environment with stacked objects)
