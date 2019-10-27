@@ -1,1 +1,0 @@
-http:www.pygame.org:80:.:	0	18180	http:www.pygame.org:80:www.pygame.org:443::n:1570835733:h2:n:1570835674:n::https://www.google.com|
