@@ -69,7 +69,7 @@ function init() {
     scene = initScene();
     controls.update();
     lighting('ambient', 0x808080);
-    lighting('directional', 0xffffff, 1, -10, 18, 5);
+    lighting('directional', 0xffffff, {intensity: 1, x: -10, y: 18, z: 5});
 }
 
 function animate() {
