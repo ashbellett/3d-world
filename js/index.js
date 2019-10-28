@@ -39,9 +39,9 @@ const margin = 0.02;
 const friction = 0.5;
 const fractureImpulse = 200;
 // Projectile
-const mass = 10
-const radius = 0.5
-const velocity = 50
+const mass = 10;
+const radius = 0.5;
+const velocity = 30;
 // World
 const maxObjects = 500;
 
@@ -132,6 +132,10 @@ class Engine {
                 light.shadow.mapSize.y = 1024;
                 this.scene.add(light);
                 break;
+            case 'spotlight':
+                light = new DirectionalLight(colour, attributes.intensity);
+                light.position.set(attributes.x, attributes.y, attributes.z);
+                this.scene.add(light);
             default:
                 break;
         }
@@ -274,12 +278,14 @@ class Engine {
         position = new Vector3();
         quaternion = new Quaternion();
         quaternion.set(0, 0, 0, 1)
-        mass = 10;
-        for (let i = 2; i < 6; i++) {
-            for (let j = 2; j < 6; j++) {
-                geometry = this.createGeometry('box', {x: 2, y: 2, z: 2});
-                position.set(-4, i+2, j+2);
-                this.createObject(geometry, material, position, quaternion, mass, 0, 0);
+        mass = 2;
+        for (let i = -2; i < 2; i++) {
+            for (let j = 0; j < 4; j++) {
+                for (let k = -2; k < 2; k++) {
+                    geometry = this.createGeometry('box', {x: 2, y: 2, z: 2});
+                    position.set(i, j+2, k);
+                    this.createObject(geometry, material, position, quaternion, mass, 0, 0);
+                }
             }
         }
     }
