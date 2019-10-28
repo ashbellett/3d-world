@@ -53,11 +53,12 @@ class Engine {
         this.convexBreaker = new ConvexObjectBreaker();
         this.mousePosition = new Vector2();
         this.rayCaster = new Raycaster();
-        this.transform = null;
+        this.element = document.getElementById('entry');
         this.renderer = this.initRenderer();
         this.camera = this.initCamera(-14, 8, 16);
         this.controls = this.initControls(0, 0, 0);
         this.scene = this.initScene();
+        this.transform = null;
         this.dispatcher = null;
         this.world = null;
         this.objects = [];
@@ -134,8 +135,7 @@ class Engine {
     }
 
     init() {
-        let element = document.getElementById('entry');
-        element.appendChild(this.renderer.domElement);
+        this.element.appendChild(this.renderer.domElement);
         this.controls.update();
         this.lighting('ambient', 0x808080);
         this.lighting('directional', 0xffffff, {intensity: 1, x: -10, y: 18, z: 5});
@@ -288,14 +288,23 @@ class Engine {
                 Math.min(window.innerHeight, maxHeight);
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(
-                Math.min(window.innerWidth, this.maxWidth),
-                Math.min(window.innerHeight, this.maxHeight)
+                Math.min(window.innerWidth, maxWidth),
+                Math.min(window.innerHeight, maxHeight)
             );
         }, false);
-        window.addEventListener('mousedown' || 'touchstart', (event) => {
+        this.element.addEventListener('mousedown', (event) => {
+            console.log(event);
             this.mousePosition.set(
                 (event.clientX/Math.min(window.innerWidth, maxWidth))*2-1,
                 -(event.clientY/Math.min(window.innerHeight, maxHeight))*2+1
+            );
+            this.shoot();
+        }, false);
+        this.element.addEventListener('touchstart', (event) => {
+            console.log(event);
+            this.mousePosition.set(
+                (event.touches[0].clientX/Math.min(window.innerWidth, maxWidth))*2-1,
+                -(event.touches[0].clientY/Math.min(window.innerHeight, maxHeight))*2+1
             );
             this.shoot();
         }, false);
@@ -329,7 +338,6 @@ class Engine {
 
     animate() {
         requestAnimationFrame(this.animate);
-        console.log('Step');
         this.step(this.clock.getDelta());
         this.renderer.render(this.scene, this.camera);
     }
