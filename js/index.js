@@ -16,11 +16,11 @@ import {
     MeshLambertMaterial,
     MeshPhongMaterial,
     Raycaster
-} from './lib/three.module.js';
-import { OrbitControls } from './lib/OrbitControls.js';
-import { ConvexObjectBreaker } from './lib/ConvexObjectBreaker.js';
-// import { ConvexGeometry } from './lib/ConvexGeometry.js';
-// import { ConvexHull } from './lib/ConvexHull.js';
+} from '../lib/three/three.module.js';
+import { OrbitControls } from '../lib/three/OrbitControls.js';
+import { ConvexObjectBreaker } from '../lib/three/ConvexObjectBreaker.js';
+import { ConvexGeometry } from '../lib/three/ConvexGeometry.js';
+import { ConvexHull } from '../lib/three/ConvexHull.js';
 
 // Window
 const maxWidth = 1280;
@@ -285,10 +285,3 @@ class Engine {
 let engine = new Engine();
 engine.start();
 // add an engine.close function?
-
-/*
-STEP 0: Delete all SSH keys, (both files, on Git (github, ibm, ibm cloud) and from cache)
-STEP 1: Create SSH keys on github, ibm and ibm cloud
-STEP 2: Generate IBM SSH using default. Generate personal key using ssh_xyz-personal
-STEP 3: Follow instructions and comments.
-*/
