@@ -35,9 +35,13 @@ const far = 2000.0;
 // Physics
 const gravity = 10;
 // Objects
-const margin = 0.05;
+const margin = 0.02;
 const friction = 0.5;
 const fractureImpulse = 200;
+// Projectile
+const mass = 10
+const radius = 0.5
+const velocity = 50
 // World
 const maxObjects = 500;
 
@@ -52,7 +56,7 @@ class Engine {
         this.transform = null;
         this.renderer = this.initRenderer();
         this.camera = this.initCamera(-14, 8, 16);
-        this.controls = this.initControls(0, 2, 0);
+        this.controls = this.initControls(0, 0, 0);
         this.scene = this.initScene();
         this.dispatcher = null;
         this.world = null;
@@ -253,15 +257,27 @@ class Engine {
     }
     
     initObjects() {
-        let geometry = this.createGeometry('box', {x: 1, y: 1, z: 1});
-        // let geometry = createGeometry('sphere', {radius: 1});
-        let material = this.createMaterial('lambert', 0xFFFFFF);
+        let geometry = this.createGeometry('box', {x: 64, y: 1, z: 64});
+        let material = this.createMaterial('lambert', 0xc0c0c0);
         let position = new Vector3();
-        position.set(0, -0.5, 0);
+        position.set(0, 0, 0);
         let quaternion = new Quaternion();
         quaternion.set(0, 0, 0, 1)
         let mass = 0;
         this.createObject(geometry, material, position, quaternion, mass, 0, 0);
+
+        material = this.createMaterial('lambert', 0x0000FF);
+        position = new Vector3();
+        quaternion = new Quaternion();
+        quaternion.set(0, 0, 0, 1)
+        mass = 10;
+        for (let i = 1.5; i < 6; i++) {
+            for (let j = 1.5; j < 6; j++) {
+                geometry = this.createGeometry('box', {x: 2, y: 2, z: 2});
+                position.set(0, i+2, j+2);
+                this.createObject(geometry, material, position, quaternion, mass, 0, 0);
+            }
+        }
     }
     
     initEvents() {
@@ -276,7 +292,7 @@ class Engine {
                 Math.min(window.innerHeight, this.maxHeight)
             );
         }, false);
-        window.addEventListener('mousedown', (event) => {
+        window.addEventListener('mousedown' || 'touchstart', (event) => {
             this.mousePosition.set(
                 (event.clientX/Math.min(window.innerWidth, maxWidth))*2-1,
                 -(event.clientY/Math.min(window.innerHeight, maxHeight))*2+1
@@ -287,7 +303,7 @@ class Engine {
     
     shoot() {
         let projectile = {};
-        projectile.mass = 100;
+        projectile.mass = mass;
         projectile.position = new Vector3();
         projectile.quaternion = new Quaternion();
         projectile.velocity = new Vector3();
@@ -297,8 +313,8 @@ class Engine {
         .add(this.rayCaster.ray.origin);
         projectile.velocity
         .copy(this.rayCaster.ray.direction)
-        .multiplyScalar(100);
-        projectile.geometry = this.createGeometry('sphere', {radius: 0.5});
+        .multiplyScalar(velocity);
+        projectile.geometry = this.createGeometry('sphere', {radius: radius});
         projectile.material = this.createMaterial('phong', 0x202020);
         this.createObject(
             projectile.geometry,
