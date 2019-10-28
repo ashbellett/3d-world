@@ -37,11 +37,11 @@ const gravity = 10;
 // Objects
 const margin = 0.02;
 const friction = 0.5;
-const fractureImpulse = 200;
+const fractureImpulse = 10;
 // Projectile
 const mass = 10;
 const radius = 0.5;
-const velocity = 30;
+const velocity = 100;
 // World
 const maxObjects = 500;
 
@@ -292,7 +292,6 @@ class Engine {
     
     initEvents() {
         window.addEventListener('resize', () => {
-            console.log('Window resize');
             this.camera.aspect =
                 Math.min(window.innerWidth, maxWidth)/
                 Math.min(window.innerHeight, maxHeight);
@@ -303,7 +302,6 @@ class Engine {
             );
         }, false);
         this.element.addEventListener('mousedown', (event) => {
-            console.log(event);
             this.mousePosition.set(
                 (event.clientX/Math.min(window.innerWidth, maxWidth))*2-1,
                 -(event.clientY/Math.min(window.innerHeight, maxHeight))*2+1
@@ -311,7 +309,6 @@ class Engine {
             this.shoot();
         }, false);
         this.element.addEventListener('touchstart', (event) => {
-            console.log(event);
             this.mousePosition.set(
                 (event.touches[0].clientX/Math.min(window.innerWidth, maxWidth))*2-1,
                 -(event.touches[0].clientY/Math.min(window.innerHeight, maxHeight))*2+1
@@ -344,6 +341,28 @@ class Engine {
             projectile.velocity,
             0
         );
+    }
+
+    removeObject(object) {
+        this.scene.remove(object);
+        this.world.removeRigidBody(object.userData.body);
+    }
+
+    debris(object) {
+        let shape = this.createShape(object.geometry.attributes.position.array);
+        shape.setMargin(margin);
+        let body = this.createBody(
+            object,
+            shape,
+            object.userData.mass,
+            null,
+            null,
+            object.userData.velocity,
+            object.userData.angularVelocity
+        );
+        let vector = new Ammo.btVector3(0, 0, 0);
+        vector.object = object;
+        body.setUserPointer(vector);
     }
 
     animate() {
@@ -430,7 +449,7 @@ class Engine {
                     let fragment = debrisObject[j];
                     fragment.userData.velocity.set(velocity.x(), velocity.y(), velocity.z());
                     fragment.userData.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-                    // debris(fragment);
+                    this.debris(fragment);
                 }
                 objectsToRemove[numObjectsToRemove++] = object0;
                 data0.isCollided = true;
@@ -450,14 +469,14 @@ class Engine {
                     let fragment = debrisObject[j];
                     fragment.data.velocity.set(velocity.x(), velocity.y(), velocity.z());
                     fragment.data.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-                    // debris(fragment);
+                    this.debris(fragment);
                 }
                 objectsToRemove[numObjectsToRemove++] = object1;
                 data1.isCollided = true;
             }
         }
         for (let i = 0; i < numObjectsToRemove; i++) {
-            //removeDebris(objectsToRemove[i]);
+            this.removeObject(objectsToRemove[i]);
         }
         numObjectsToRemove = 0;
     }
