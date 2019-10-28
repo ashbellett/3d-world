@@ -55,7 +55,7 @@ class Engine {
         this.rayCaster = new Raycaster();
         this.element = document.getElementById('entry');
         this.renderer = this.initRenderer();
-        this.camera = this.initCamera(-14, 8, 16);
+        this.camera = this.initCamera(-16, 8, 16);
         this.controls = this.initControls(0, 0, 0);
         this.scene = this.initScene();
         this.transform = null;
@@ -77,7 +77,10 @@ class Engine {
     }
     
     initRenderer() {
-        let renderer = new WebGLRenderer();
+        let renderer = new WebGLRenderer({
+            alpha: true,
+            antialias: true
+        });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height);
         renderer.shadowMap.enabled = true;
@@ -115,7 +118,7 @@ class Engine {
                 this.scene.add(light);
                 break;
             case 'directional':
-                const d = 100;
+                const d = 10;
                 light = new DirectionalLight(colour, attributes.intensity);
                 light.position.set(attributes.x, attributes.y, attributes.z);
                 light.castShadow = true;
@@ -124,7 +127,7 @@ class Engine {
                 light.shadow.camera.top = d;
                 light.shadow.camera.bottom = -d;
                 light.shadow.camera.near = 2;
-                light.shadow.camera.far = 100;
+                light.shadow.camera.far = 50;
                 light.shadow.mapSize.x = 1024;
                 light.shadow.mapSize.y = 1024;
                 this.scene.add(light);
@@ -138,7 +141,8 @@ class Engine {
         this.element.appendChild(this.renderer.domElement);
         this.controls.update();
         this.lighting('ambient', 0x808080);
-        this.lighting('directional', 0xffffff, {intensity: 1, x: -10, y: 18, z: 5});
+        this.lighting('directional', 0xffffff, {intensity: 1, x: -10, y: 15, z: 5});
+        this.camera.lookAt(0, 0, 3);
     }
     
     initPhysics() {
@@ -266,15 +270,15 @@ class Engine {
         let mass = 0;
         this.createObject(geometry, material, position, quaternion, mass, 0, 0);
 
-        material = this.createMaterial('lambert', 0x0000FF);
+        material = this.createMaterial('lambert', 0x007FFF);
         position = new Vector3();
         quaternion = new Quaternion();
         quaternion.set(0, 0, 0, 1)
         mass = 10;
-        for (let i = 1.5; i < 6; i++) {
-            for (let j = 1.5; j < 6; j++) {
+        for (let i = 2; i < 6; i++) {
+            for (let j = 2; j < 6; j++) {
                 geometry = this.createGeometry('box', {x: 2, y: 2, z: 2});
-                position.set(0, i+2, j+2);
+                position.set(-4, i+2, j+2);
                 this.createObject(geometry, material, position, quaternion, mass, 0, 0);
             }
         }
