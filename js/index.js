@@ -34,14 +34,11 @@ const near = 0.2;
 const far = 2000.0;
 // Physics
 const gravity = 10;
-const friction = 0.5;
 // Objects
-const fractureImpulse = 200;
-const projectileMass = 50;
-const projectileRadius = 0.5;
-const projectileInitialVelocity = 100;
-// World
 const margin = 0.05;
+const friction = 0.5;
+const fractureImpulse = 200;
+// World
 const maxObjects = 500;
 
 // TODO need to return a light, and then add to scene independently. Maybe same with objects/bodies
@@ -52,6 +49,7 @@ class Engine {
         this.convexBreaker = new ConvexObjectBreaker();
         this.mousePosition = new Vector2();
         this.rayCaster = new Raycaster();
+        this.transform = null;
         this.renderer = this.initRenderer();
         this.camera = this.initCamera(-14, 8, 16);
         this.controls = this.initControls(0, 2, 0);
@@ -140,6 +138,7 @@ class Engine {
     }
     
     initPhysics() {
+        this.transform = new Ammo.btTransform();
         let collisionConfiguration = new Ammo.btDefaultCollisionConfiguration();
         this.dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration);
         let broadphase = new Ammo.btDbvtBroadphase();
@@ -196,7 +195,7 @@ class Engine {
         return body;
     }
     
-    createObject(geometry, material, position, quaternion, mass) {
+    createObject(geometry, material, position, quaternion, mass, velocity, angularVelocity) {
         let object = new Mesh(geometry, material);
         object.position.copy(position);
         object.quaternion.copy(quaternion);
@@ -211,7 +210,15 @@ class Engine {
         );
         let shape = this.createShape(object.geometry.attributes.position.array);
         shape.setMargin(margin);
-        let body = this.createBody(object, shape, object.userData.mass, null, null, object.userData.velocity, object.userData.angularVelocity);
+        let body = this.createBody(
+            object,
+            shape,
+            object.userData.mass,
+            null,
+            null,
+            velocity || object.userData.velocity,
+            angularVelocity || object.userData.angularVelocity
+        );
         object.userData.body = body;
         object.userData.isCollided = false;
         this.scene.add(object);
@@ -254,34 +261,173 @@ class Engine {
         let quaternion = new Quaternion();
         quaternion.set(0, 0, 0, 1)
         let mass = 0;
-        this.createObject(geometry, material, position, quaternion, mass);
+        this.createObject(geometry, material, position, quaternion, mass, 0, 0);
     }
     
     initEvents() {
+        window.addEventListener('resize', () => {
+            console.log('Window resize');
+            this.camera.aspect =
+                Math.min(window.innerWidth, maxWidth)/
+                Math.min(window.innerHeight, maxHeight);
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(
+                Math.min(window.innerWidth, this.maxWidth),
+                Math.min(window.innerHeight, this.maxHeight)
+            );
+        }, false);
         window.addEventListener('mousedown', (event) => {
             this.mousePosition.set(
-                (event.clientX/Math.min(window.innerWidth, this.maxWidth))*2-1,
-                -(event.clientY/Math.min(window.innerHeight, this.maxHeight))*2+1
+                (event.clientX/Math.min(window.innerWidth, maxWidth))*2-1,
+                -(event.clientY/Math.min(window.innerHeight, maxHeight))*2+1
             );
             this.shoot();
         }, false);
     }
     
     shoot() {
-    
+        let projectile = {};
+        projectile.mass = 100;
+        projectile.position = new Vector3();
+        projectile.quaternion = new Quaternion();
+        projectile.velocity = new Vector3();
+        this.rayCaster.setFromCamera(this.mousePosition, this.camera);
+        projectile.position
+        .copy(this.rayCaster.ray.direction)
+        .add(this.rayCaster.ray.origin);
+        projectile.velocity
+        .copy(this.rayCaster.ray.direction)
+        .multiplyScalar(100);
+        projectile.geometry = this.createGeometry('sphere', {radius: 0.5});
+        projectile.material = this.createMaterial('phong', 0x202020);
+        this.createObject(
+            projectile.geometry,
+            projectile.material,
+            projectile.position,
+            projectile.quaternion,
+            projectile.mass,
+            projectile.velocity,
+            0
+        );
     }
 
     animate() {
         requestAnimationFrame(this.animate);
+        console.log('Step');
         this.step(this.clock.getDelta());
         this.renderer.render(this.scene, this.camera);
     }
     
     step(time) {
         this.world.stepSimulation(time, 10);
+        let impactPoint = new Vector3();
+        let impactNormal = new Vector3();
+        let objectsToRemove = [];
+        let numObjectsToRemove = 0;
+        for (let i = 0; i < maxObjects; i++) {
+            objectsToRemove[i] = null;
+        }
+        for (let i = 0; i < this.objects.length; i++) {
+            let object = this.objects[i];
+            let body = object.userData.body;
+            let motionState = body.getMotionState();
+            if (motionState) {
+                motionState.getWorldTransform(this.transform);
+                let origin = this.transform.getOrigin();
+                let quaternion = this.transform.getRotation();
+                object.position.set(
+                    origin.x(),
+                    origin.y(),
+                    origin.z()
+                );
+                object.quaternion.set(
+                    quaternion.x(),
+                    quaternion.y(),
+                    quaternion.z(),
+                    quaternion.w()
+                );
+                object.userData.isCollided = false;
+            }
+        }
+        for (let i = 0; i < this.dispatcher.getNumManifolds(); i++) {
+            let contactManifold = this.dispatcher.getManifoldByIndexInternal(i);
+            let body0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
+            let body1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
+            let object0 = Ammo.castObject(body0.getUserPointer(), Ammo.btVector3).object;
+            let object1 = Ammo.castObject(body1.getUserPointer(), Ammo.btVector3).object;
+            if (!object0 && !object1) continue;
+            let data0 = object0 ? object0.userData : null;
+            let data1 = object1 ? object1.userData : null;
+            let isBreakable0 = data0 ? data0.isBreakable : false;
+            let isBreakable1 = data1 ? data1.isBreakable : false;
+            let isCollided0 = data0 ? data0.isCollided : false;
+            let isCollided1 = data1 ? data1.isCollided : false;
+            if ((!isBreakable0 && !isBreakable1) || (isCollided0 && isCollided1)) continue;
+            let contact = false;
+            let maxImpulse = 0;
+            for (let j = 0; j < contactManifold.getNumContacts(); j++) {
+                let contactPoint = contactManifold.getContactPoint(j);
+                if (contactPoint.getDistance() < 0) {
+                    contact = true;
+                    let impulse = contactPoint.getAppliedImpulse();
+                    if (impulse > maxImpulse) {
+                        maxImpulse = impulse;
+                        let position = contactPoint.get_m_positionWorldOnB();
+                        let normal = contactPoint.get_m_normalWorldOnB();
+                        impactPoint.set(position.x(), position.y(), position.z());
+                        impactNormal.set(normal.x(), normal.y(), normal.z());
+                    }
+                    break;
+                }
+            }
+            if (!contact) continue;
+            if (isBreakable0 && !isCollided0 && maxImpulse > this.fractureImpulse) {
+                let debrisObject = this.convexBreaker.subdivideByImpact(
+                    object0,
+                    impactPoint,
+                    impactNormal,
+                    1,
+                    2,
+                    1.5
+                );
+                for (let j = 0; j < debrisObject.length; j++) {
+                    let velocity = body0.getLinearVelocity();
+                    let angularVelocity = body0.getAngularVelocity();
+                    let fragment = debrisObject[j];
+                    fragment.userData.velocity.set(velocity.x(), velocity.y(), velocity.z());
+                    fragment.userData.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+                    // debris(fragment);
+                }
+                objectsToRemove[numObjectsToRemove++] = object0;
+                data0.isCollided = true;
+            }
+            if (isBreakable1 && ! isCollided1 && maxImpulse > fractureImpulse) {
+                let debrisObject = convexBreaker.subdivideByImpact(
+                    object1,
+                    impactPoint,
+                    impactNormal,
+                    1,
+                    2,
+                    1.5
+                );
+                for (let j = 0; j < debrisObject.length; j++) {
+                    let velocity = body1.getLinearVelocity();
+                    let angularVelocity = body1.getAngularVelocity();
+                    let fragment = debrisObject[j];
+                    fragment.data.velocity.set(velocity.x(), velocity.y(), velocity.z());
+                    fragment.data.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+                    // debris(fragment);
+                }
+                objectsToRemove[numObjectsToRemove++] = object1;
+                data1.isCollided = true;
+            }
+        }
+        for (let i = 0; i < numObjectsToRemove; i++) {
+            //removeDebris(objectsToRemove[i]);
+        }
+        numObjectsToRemove = 0;
     }
 }
 
 let engine = new Engine();
 engine.start();
-// add an engine.close function?
