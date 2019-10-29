@@ -15,3 +15,9 @@ Three.js libraries:
 
 Three.js code examples:
 - ["WebGL Physics Convex Break"](https://threejs.org/examples/#webgl_physics_convex_break)
+
+## To Do
+- Remove objects when they pass a boundary
+- Gradient scene background
+- Real-time parameter changes
+- Improve positions, colours and textures
