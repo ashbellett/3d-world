@@ -19,17 +19,12 @@ import {
 } from '../lib/three/three.module.js';
 import { OrbitControls } from '../lib/three/OrbitControls.js';
 import { ConvexObjectBreaker } from '../lib/three/ConvexObjectBreaker.js';
-import { ConvexGeometry } from '../lib/three/ConvexGeometry.js';
-import { ConvexHull } from '../lib/three/ConvexHull.js';
 
 // Window
 const maxWidth = 1280;
 const maxHeight = 720;
-const width = Math.min(window.innerWidth, maxWidth);
-const height = Math.min(window.innerHeight, maxHeight);
-const aspectRatio = width/height;
 // Camera
-const fov = 75;
+const fov = 60;
 const near = 0.2;
 const far = 2000.0;
 // Physics
@@ -37,13 +32,13 @@ const gravity = 10;
 // Objects
 const margin = 0.02;
 const friction = 0.5;
-const fractureImpulse = 10;
+const fractureImpulse = 5;
 // Projectile
 const mass = 10;
-const radius = 0.5;
-const velocity = 100;
+const radius = 0.2;
+const velocity = 50;
 // World
-const maxObjects = 500;
+const maxObjects = 200;
 
 // TODO need to return a light, and then add to scene independently. Maybe same with objects/bodies
 
@@ -53,6 +48,9 @@ class Engine {
         this.convexBreaker = new ConvexObjectBreaker();
         this.mousePosition = new Vector2();
         this.rayCaster = new Raycaster();
+        this.width = Math.min(window.innerWidth, maxWidth);
+        this.height = Math.min(window.innerHeight, maxHeight);
+        this.aspectRatio = this.width/this.height;
         this.element = document.getElementById('entry');
         this.renderer = this.initRenderer();
         this.camera = this.initCamera(-16, 8, 16);
@@ -82,15 +80,17 @@ class Engine {
             antialias: true
         });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(width, height);
+        renderer.setSize(this.width, this.height);
         renderer.shadowMap.enabled = true;
+        renderer.gammaInput = true;
+        renderer.gammaOutput = true;
         return renderer;
     }
     
     initCamera(x, y, z) {
         let camera = new PerspectiveCamera(
             fov,
-            aspectRatio,
+            this.aspectRatio,
             near,
             far
         );
@@ -118,23 +118,15 @@ class Engine {
                 this.scene.add(light);
                 break;
             case 'directional':
-                const d = 10;
                 light = new DirectionalLight(colour, attributes.intensity);
                 light.position.set(attributes.x, attributes.y, attributes.z);
                 light.castShadow = true;
-                light.shadow.camera.left = -d;
-                light.shadow.camera.right = d;
-                light.shadow.camera.top = d;
-                light.shadow.camera.bottom = -d;
-                light.shadow.camera.near = 2;
-                light.shadow.camera.far = 50;
-                light.shadow.mapSize.x = 1024;
-                light.shadow.mapSize.y = 1024;
                 this.scene.add(light);
                 break;
             case 'spotlight':
                 light = new DirectionalLight(colour, attributes.intensity);
                 light.position.set(attributes.x, attributes.y, attributes.z);
+                light.castShadow = true;
                 this.scene.add(light);
             default:
                 break;
@@ -145,8 +137,8 @@ class Engine {
         this.element.appendChild(this.renderer.domElement);
         this.controls.update();
         this.lighting('ambient', 0x808080);
-        this.lighting('directional', 0xffffff, {intensity: 1, x: -10, y: 15, z: 5});
-        this.camera.lookAt(0, 0, 3);
+        this.lighting('directional', 0xffffff, {intensity: 0.8, x: -20, y: 20, z: 20});
+        this.camera.lookAt(0, 0, 0);
     }
     
     initPhysics() {
@@ -203,6 +195,10 @@ class Engine {
             body.setAngularVelocity(new Ammo.btVector3(angularVelocity.x, angularVelocity.y, angularVelocity.z));
         }
         body.setActivationState(4);
+        object.userData.body = body;
+        object.userData.collided = false;
+        this.scene.add(object);
+        this.objects.push(object);
         this.world.addRigidBody(body);
         return body;
     }
@@ -231,10 +227,7 @@ class Engine {
             velocity || object.userData.velocity,
             angularVelocity || object.userData.angularVelocity
         );
-        object.userData.body = body;
-        object.userData.isCollided = false;
-        this.scene.add(object);
-        this.objects.push(object);
+        
         let vector = new Ammo.btVector3(0, 0, 0);
         vector.object = object;
         body.setUserPointer(vector);
@@ -266,7 +259,7 @@ class Engine {
     
     initObjects() {
         let geometry = this.createGeometry('box', {x: 64, y: 1, z: 64});
-        let material = this.createMaterial('lambert', 0xc0c0c0);
+        let material = this.createMaterial('lambert', 0xeeeeee);
         let position = new Vector3();
         position.set(0, 0, 0);
         let quaternion = new Quaternion();
@@ -274,7 +267,7 @@ class Engine {
         let mass = 0;
         this.createObject(geometry, material, position, quaternion, mass, 0, 0);
 
-        material = this.createMaterial('lambert', 0x007FFF);
+        material = this.createMaterial('lambert', 0x0D8C73);
         position = new Vector3();
         quaternion = new Quaternion();
         quaternion.set(0, 0, 0, 1)
@@ -348,7 +341,9 @@ class Engine {
         this.world.removeRigidBody(object.userData.body);
     }
 
-    debris(object) {
+    createDebris(object) {
+        object.castShadow = true;
+        object.receiveShadow = true;
         let shape = this.createShape(object.geometry.attributes.position.array);
         shape.setMargin(margin);
         let body = this.createBody(
@@ -399,7 +394,7 @@ class Engine {
                     quaternion.z(),
                     quaternion.w()
                 );
-                object.userData.isCollided = false;
+                object.userData.collided = false;
             }
         }
         for (let i = 0; i < this.dispatcher.getNumManifolds(); i++) {
@@ -411,11 +406,11 @@ class Engine {
             if (!object0 && !object1) continue;
             let data0 = object0 ? object0.userData : null;
             let data1 = object1 ? object1.userData : null;
-            let isBreakable0 = data0 ? data0.isBreakable : false;
-            let isBreakable1 = data1 ? data1.isBreakable : false;
-            let isCollided0 = data0 ? data0.isCollided : false;
-            let isCollided1 = data1 ? data1.isCollided : false;
-            if ((!isBreakable0 && !isBreakable1) || (isCollided0 && isCollided1)) continue;
+            let breakable0 = data0 ? data0.breakable : false;
+            let breakable1 = data1 ? data1.breakable : false;
+            let collided0 = data0 ? data0.collided : false;
+            let collided1 = data1 ? data1.collided : false;
+            if ((!breakable0 && !breakable1) || (collided0 && collided1)) continue;
             let contact = false;
             let maxImpulse = 0;
             for (let j = 0; j < contactManifold.getNumContacts(); j++) {
@@ -434,7 +429,7 @@ class Engine {
                 }
             }
             if (!contact) continue;
-            if (isBreakable0 && !isCollided0 && maxImpulse > this.fractureImpulse) {
+            if (breakable0 && !collided0 && maxImpulse > fractureImpulse) {
                 let debrisObject = this.convexBreaker.subdivideByImpact(
                     object0,
                     impactPoint,
@@ -449,13 +444,13 @@ class Engine {
                     let fragment = debrisObject[j];
                     fragment.userData.velocity.set(velocity.x(), velocity.y(), velocity.z());
                     fragment.userData.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-                    this.debris(fragment);
+                    this.createDebris(fragment);
                 }
                 objectsToRemove[numObjectsToRemove++] = object0;
-                data0.isCollided = true;
+                data0.collided = true;
             }
-            if (isBreakable1 && ! isCollided1 && maxImpulse > fractureImpulse) {
-                let debrisObject = convexBreaker.subdivideByImpact(
+            if (breakable1 && ! collided1 && maxImpulse > fractureImpulse) {
+                let debrisObject = this.convexBreaker.subdivideByImpact(
                     object1,
                     impactPoint,
                     impactNormal,
@@ -467,12 +462,12 @@ class Engine {
                     let velocity = body1.getLinearVelocity();
                     let angularVelocity = body1.getAngularVelocity();
                     let fragment = debrisObject[j];
-                    fragment.data.velocity.set(velocity.x(), velocity.y(), velocity.z());
-                    fragment.data.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-                    this.debris(fragment);
+                    fragment.userData.velocity.set(velocity.x(), velocity.y(), velocity.z());
+                    fragment.userData.angularVelocity.set(angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+                    this.createDebris(fragment);
                 }
                 objectsToRemove[numObjectsToRemove++] = object1;
-                data1.isCollided = true;
+                data1.collided = true;
             }
         }
         for (let i = 0; i < numObjectsToRemove; i++) {
