@@ -365,18 +365,11 @@ class Engine {
         this.step(this.clock.getDelta());
         this.renderer.render(this.scene, this.camera);
     }
-    
-    step(time) {
-        this.world.stepSimulation(time, 10);
-        let impactPoint = new Vector3();
-        let impactNormal = new Vector3();
-        let objectsToRemove = [];
-        let numObjectsToRemove = 0;
-        for (let i = 0; i < maxObjects; i++) {
-            objectsToRemove[i] = null;
-        }
-        for (let i = 0; i < this.objects.length; i++) {
-            let object = this.objects[i];
+
+    updateObjects(objects) {
+        let objectCount = objects.length;
+        for (let i = 0; i < objectCount; i++) {
+            let object = objects[i];
             let body = object.userData.body;
             let motionState = body.getMotionState();
             if (motionState) {
@@ -397,6 +390,18 @@ class Engine {
                 object.userData.collided = false;
             }
         }
+    }
+    
+    step(time) {
+        this.world.stepSimulation(time, 10);
+        let impactPoint = new Vector3();
+        let impactNormal = new Vector3();
+        let objectsToRemove = [];
+        let numObjectsToRemove = 0;
+        for (let i = 0; i < maxObjects; i++) {
+            objectsToRemove[i] = null;
+        }
+        this.updateObjects(this.objects);
         for (let i = 0; i < this.dispatcher.getNumManifolds(); i++) {
             let contactManifold = this.dispatcher.getManifoldByIndexInternal(i);
             let body0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
@@ -435,8 +440,7 @@ class Engine {
                     impactPoint,
                     impactNormal,
                     1,
-                    2,
-                    1.5
+                    2
                 );
                 for (let j = 0; j < debrisObject.length; j++) {
                     let velocity = body0.getLinearVelocity();
@@ -455,8 +459,7 @@ class Engine {
                     impactPoint,
                     impactNormal,
                     1,
-                    2,
-                    1.5
+                    2
                 );
                 for (let j = 0; j < debrisObject.length; j++) {
                     let velocity = body1.getLinearVelocity();
