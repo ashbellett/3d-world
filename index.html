@@ -1,23 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-	<head>
-		<title>3D World</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<link type="text/css" rel="stylesheet" href="./css/index.css">
-		<script type="importmap">
-			{
-				"imports": {
-					"three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
-				}
-			}
-		</script>
-	</head>
-	<body>
-	<!--<div id="title">A three-dimensional world with objects, lighting and physics.<br />Click to throw objects and drag to move the camera.</div>-->
-	<div id="entry"></div>
-	<script src="./lib/ammo/ammo.wasm.js"></script>
-	<script src="./js/index.js" type="module"></script>
-	</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+        />
+        <title>3D World</title>
+        <link rel="stylesheet" href="./src/index.css" />
+        <!-- Fetch the physics engine while the scripts load, rather than after -->
+        <link
+            rel="preload"
+            href="/lib/ammo/ammo.wasm.wasm"
+            as="fetch"
+            type="application/wasm"
+            crossorigin
+        />
+        <!-- A classic script, as its loader finds the .wasm file next to itself. It must come
+             before main.js, which uses the Ammo global it defines. -->
+        <script src="/lib/ammo/ammo.wasm.js" defer></script>
+        <script type="module" src="./src/main.js"></script>
+    </head>
+    <body>
+        <div id="container"></div>
+    </body>
 </html>
