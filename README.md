@@ -2,22 +2,28 @@
 A three-dimensional world with objects, lighting and physics.  
 **Try it out [here](https://ashbellett.github.io/3d-world/).**
 
+Click or tap to throw objects, drag to move the camera.
+
+## Running locally
+The page uses ES modules and WebAssembly, so it must be served over HTTP rather than opened as a file:
+```
+python3 -m http.server
+```
+Then open http://localhost:8000.
+
 ## Dependencies
-[Three.js](https://github.com/mrdoob/three.js)  
-[Ammo.js](https://github.com/kripken/ammo.js)
+[Three.js](https://github.com/mrdoob/three.js) r186, loaded from jsDelivr via the import map in `index.html`  
+[Ammo.js](https://github.com/kripken/ammo.js) WebAssembly build (commit `79190a1`, the same build Three.js uses), in `lib/ammo`
 
 ## Credit
-Three.js libraries:
-- [ConvexGeometry](https://threejs.org/docs/#examples/en/geometries/ConvexGeometry)
-- [ConvexHull](https://threejs.org/docs/#examples/en/math/convexhull/ConvexHull)
-- [ConvexObjectBreaker](https://github.com/mrdoob/three.js/blob/master/examples/jsm/misc/ConvexObjectBreaker.js) (no doc)
-- [OrbitControls](https://threejs.org/docs/#examples/en/controls/OrbitControls)
+Three.js add-ons:
+- [ConvexObjectBreaker](https://threejs.org/docs/#ConvexObjectBreaker)
+- [OrbitControls](https://threejs.org/docs/#OrbitControls)
 
 Three.js code examples:
 - ["WebGL Physics Convex Break"](https://threejs.org/examples/#webgl_physics_convex_break)
 
 ## To Do
-- Remove objects when they pass a boundary
 - Gradient scene background
 - Real-time parameter changes
 - Improve positions, colours and textures
