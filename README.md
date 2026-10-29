@@ -4,7 +4,8 @@ A three-dimensional world with objects, lighting and physics.
 
 **Try it out [here](https://ashbellett.github.io/3d-world/).**
 
-Click or tap to throw objects, drag to move the camera.
+Click or tap to throw objects, drag to move the camera. Pick a level from the buttons in the top
+left; pressing the current level's button restarts it.
 
 ## Running locally
 
@@ -40,14 +41,16 @@ these modules:
 
 | Module        | Does                                                                       |
 | ------------- | -------------------------------------------------------------------------- |
-| `config.ts`   | Settings and the scene layout                                              |
+| `config.ts`   | Settings                                                                   |
+| `levels.ts`   | The levels: each object's shape, mass, colour, break strength and position |
 | `graphics.ts` | Renderer, camera, controls and lights; renders only when something changed |
 | `physics.ts`  | The Ammo.js physics world, and the only module that uses Ammo              |
 | `world.ts`    | Objects in the scene, each a mesh with a physics body                      |
-| `fracture.ts` | Breaks objects that are hit hard enough                                    |
+| `fracture.ts` | Breaks objects that are hit harder than their break strength               |
 | `launcher.ts` | Fires projectiles from the camera                                          |
 | `input.ts`    | Tells a click or tap from a camera drag                                    |
-| `level.ts`    | Builds the ground and the stack of boxes                                   |
+| `level.ts`    | Builds the ground, with its grid, and a level's objects                    |
+| `menu.ts`     | The level buttons                                                          |
 | `ammo.d.ts`   | Types for the parts of Ammo.js the code uses, as Ammo.js has none          |
 
 ## Dependencies
@@ -60,12 +63,14 @@ these modules:
 
 Three.js add-ons:
 
+- [ConvexGeometry](https://threejs.org/docs/#ConvexGeometry)
 - [ConvexObjectBreaker](https://threejs.org/docs/#ConvexObjectBreaker)
 - [OrbitControls](https://threejs.org/docs/#OrbitControls)
 
 Three.js code examples:
 
-- ["WebGL Physics Convex Break"](https://threejs.org/examples/#webgl_physics_convex_break)
+- ["Convex object breaking"](https://threejs.org/examples/#physics_ammo_break), whose scene is the
+  Ruins level
 
 ## To Do
 

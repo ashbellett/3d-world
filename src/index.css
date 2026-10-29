@@ -1,9 +1,35 @@
 body {
     margin: 0;
+    overflow: hidden;
     background-color: #000;
     color: #fff;
 }
 
 canvas {
     display: block;
+}
+
+.level-menu {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    gap: 4px;
+}
+
+.level-menu button {
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 4px;
+    background-color: rgb(255 255 255 / 0.7);
+    color: #333;
+    font:
+        14px system-ui,
+        sans-serif;
+    cursor: pointer;
+}
+
+.level-menu button[aria-pressed='true'] {
+    background-color: #333;
+    color: #fff;
 }

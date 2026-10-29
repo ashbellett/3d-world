@@ -9,6 +9,8 @@ export interface BodyData {
     velocity: Vector3;
     angularVelocity: Vector3;
     breakable: boolean;
+    // Contact impulse above which it breaks, if breakable
+    breakImpulse: number;
 }
 
 export interface AddOptions {
@@ -27,14 +29,15 @@ export interface ObjectData extends BodyData, Required<AddOptions> {
 export type BodyMesh = Mesh & { userData: BodyData };
 export type WorldObject = Mesh & { userData: ObjectData };
 
-// Makes a mesh to pass to World.add. It sets the same userData fields as
-// ConvexObjectBreaker.prepareBreakableObject, which the breaker reads from objects it breaks.
+// Makes a mesh to pass to World.add. A breakImpulse makes it breakable. It sets the same
+// userData fields as ConvexObjectBreaker.prepareBreakableObject, which the breaker reads from
+// objects it breaks, and breakImpulse, which Fracture reads.
 export function createMesh(
     geometry: BufferGeometry,
-    material: Material,
+    material: Material | Material[],
     position: Vector3,
     mass: number,
-    breakable = false,
+    breakImpulse?: number,
 ): BodyMesh {
     const mesh = new Mesh(geometry, material);
     mesh.position.copy(position);
@@ -42,14 +45,16 @@ export function createMesh(
         mass,
         velocity: new Vector3(),
         angularVelocity: new Vector3(),
-        breakable,
+        breakable: breakImpulse !== undefined,
+        breakImpulse: breakImpulse ?? Infinity,
     };
     Object.assign(mesh.userData, data);
     return mesh as BodyMesh;
 }
 
 // The objects in the scene, each a mesh with a physics body. Each mesh's userData holds:
-// - mass, velocity, angularVelocity, breakable: from createMesh or ConvexObjectBreaker
+// - mass, velocity, angularVelocity, breakable, breakImpulse: from createMesh, or from
+//   ConvexObjectBreaker and Fracture for debris
 // - id: the body's id
 // - body: the body's handle from Physics.addBody
 // - shape: the body's collision shape
@@ -118,6 +123,12 @@ export class World {
             if (mesh.position.y < config.world.minY) this.toRemove.add(mesh);
         }
         return moved;
+    }
+
+    // Removes every object now, rather than at the end of the frame
+    clear(): void {
+        for (const mesh of this.objects.values()) this.toRemove.add(mesh);
+        this.flush();
     }
 
     // Queues the oldest projectiles and debris for removal beyond the object limit

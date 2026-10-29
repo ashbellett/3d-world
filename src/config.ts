@@ -1,8 +1,7 @@
-// Settings and scene layout. Positions and sizes are [x, y, z].
+// Settings. Positions and sizes are [x, y, z], with y up from the ground's surface. The levels
+// are in levels.ts.
 export const config = {
     canvas: {
-        maxWidth: 1280,
-        maxHeight: 720,
         maxPixelRatio: 2,
     },
     camera: {
@@ -10,7 +9,7 @@ export const config = {
         near: 0.2,
         far: 2000,
         position: [-16, 8, 16],
-        target: [0, 0, 0],
+        target: [0, 2, 0],
     },
     background: 0xbfd1e5,
     // Intensities are physically based (three.js r155+), hence the factors of PI
@@ -32,10 +31,11 @@ export const config = {
         maxSubSteps: 10,
         margin: 0.02,
         friction: 0.5,
+        // Bullet multiplies the two bodies' restitutions, so a contact bounces back at a quarter
+        // of its speed
+        restitution: 0.5,
     },
     fracture: {
-        // Contact impulse above which a breakable object breaks
-        impulse: 5,
         // Each break takes a millisecond or two, so any more wait for later frames
         maxPerFrame: 2,
         radialIterations: 1,
@@ -47,19 +47,17 @@ export const config = {
         speed: 50,
         colour: 0x636363,
     },
-    // Centred on the origin
+    // Centred on the origin, below y = 0
     ground: {
         size: [64, 1, 64],
         colour: 0xf7f7f7,
-    },
-    // Breakable boxes, centred on the ground
-    stack: {
-        count: [4, 4, 4],
-        size: 2,
-        // Space between boxes, more than twice the collision margin, so the stack starts at rest
-        gap: 0.05,
-        mass: 2,
-        colour: 0x40c4b3,
+        // Lines drawn on the top, one cell per metre
+        grid: {
+            colour: 0xc8c8c8,
+            // Pixels per cell, and line width in pixels
+            resolution: 64,
+            lineWidth: 2,
+        },
     },
     world: {
         // Oldest projectiles and debris are removed beyond this many objects
