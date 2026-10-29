@@ -82,6 +82,11 @@ export const levels: LevelSpec[] = [
                 breakImpulse: 60,
                 positions: [[0, towerHeight + 2 * gap + 0.2, 0]],
             },
+        ],
+    },
+    {
+        name: 'Dominoes',
+        blocks: [
             // A row of standing slabs
             {
                 shape: { box: [2, 4, 0.3] },
