@@ -112,6 +112,7 @@ export class Physics {
         const body = new ammo.btRigidBody(info);
         ammo.destroy(info);
         body.setFriction(config.physics.friction);
+        body.setRestitution(config.physics.restitution);
         vector.setValue(velocity.x, velocity.y, velocity.z);
         body.setLinearVelocity(vector);
         vector.setValue(angularVelocity.x, angularVelocity.y, angularVelocity.z);

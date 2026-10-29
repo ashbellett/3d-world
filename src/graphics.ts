@@ -69,8 +69,8 @@ export class Graphics {
     }
 
     resize(): void {
-        const width = Math.min(window.innerWidth, config.canvas.maxWidth);
-        const height = Math.min(window.innerHeight, config.canvas.maxHeight);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);

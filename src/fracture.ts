@@ -13,7 +13,7 @@ interface Impact {
 
 const inverse = new Quaternion();
 
-// Breaks breakable objects that are hit hard enough into debris. At most
+// Breaks breakable objects that are hit harder than their breakImpulse into debris. At most
 // config.fracture.maxPerFrame objects break each frame, so a shot that hits several boxes
 // doesn't stall a single frame; the rest wait in a queue.
 export class Fracture {
@@ -27,9 +27,8 @@ export class Fracture {
     readonly accept: ContactFilter = (id0, id1) =>
         this.canBreak(this.world.get(id0)) || this.canBreak(this.world.get(id1));
     readonly onImpact: ImpactHandler = (id0, id1, impulse, point, normal) => {
-        if (impulse <= config.fracture.impulse) return;
-        this.enqueue(id0, point, normal);
-        this.enqueue(id1, point, normal);
+        this.enqueue(id0, impulse, point, normal);
+        this.enqueue(id1, impulse, point, normal);
     };
 
     constructor(world: World, physics: Physics) {
@@ -41,9 +40,9 @@ export class Fracture {
         return mesh !== undefined && mesh.userData.breakable && !this.queue.has(mesh);
     }
 
-    enqueue(id: number, point: Vector3, normal: Vector3): void {
+    enqueue(id: number, impulse: number, point: Vector3, normal: Vector3): void {
         const mesh = this.world.get(id);
-        if (!this.canBreak(mesh)) return;
+        if (!this.canBreak(mesh) || impulse <= mesh.userData.breakImpulse) return;
         inverse.copy(mesh.quaternion).invert();
         this.queue.set(mesh, {
             point: point.clone().sub(mesh.position).applyQuaternion(inverse),
@@ -88,6 +87,7 @@ export class Fracture {
         }
         if (debris.length === 0) return;
         for (const fragment of debris as BodyMesh[]) {
+            fragment.userData.breakImpulse = data.breakImpulse;
             const shape = this.physics.createHullShape(fragment.geometry.attributes.position.array);
             this.world.add(fragment, shape, { transient: true });
         }

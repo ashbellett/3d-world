@@ -59,6 +59,7 @@ declare namespace Ammo {
         activate(forceActivation?: boolean): void;
         isActive(): boolean;
         setFriction(friction: number): void;
+        setRestitution(restitution: number): void;
         getUserIndex(): number;
         setUserIndex(index: number): void;
     }
