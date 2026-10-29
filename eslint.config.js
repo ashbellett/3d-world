@@ -1,18 +1,14 @@
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 export default defineConfig([
     globalIgnores(['dist/', 'public/']),
     js.configs.recommended,
+    tseslint.configs.recommended,
     {
-        languageOptions: {
-            globals: {
-                ...globals.browser,
-                // Defined by public/lib/ammo/ammo.wasm.js
-                Ammo: 'readonly',
-            },
-        },
+        languageOptions: { globals: globals.browser },
         rules: {
             'prefer-const': 'error',
         },

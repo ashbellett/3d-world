@@ -17,34 +17,38 @@ npm run dev
 
 and open the URL it prints.
 
-| Command           | Does                                     |
-| ----------------- | ---------------------------------------- |
-| `npm run dev`     | Serves the page, reloading on changes    |
-| `npm run build`   | Builds the site into `dist/`             |
-| `npm run preview` | Serves the built site                    |
-| `npm run lint`    | Checks the code with ESLint and Prettier |
-| `npm run format`  | Formats the code with Prettier           |
+| Command             | Does                                                    |
+| ------------------- | ------------------------------------------------------- |
+| `npm run dev`       | Serves the page, reloading on changes                   |
+| `npm run build`     | Type-checks the code, then builds the site into `dist/` |
+| `npm run preview`   | Serves the built site                                   |
+| `npm run typecheck` | Type-checks the code with TypeScript                    |
+| `npm run lint`      | Checks the code with ESLint and Prettier                |
+| `npm run format`    | Formats the code with Prettier                          |
 
 ## Deployment
 
-Pushes to `master` are built and deployed to GitHub Pages by `.github/workflows/deploy.yml`.
+Pushes to `main` are built and deployed to GitHub Pages by `.github/workflows/deploy.yml`.
 This needs the repository's Pages source set to **GitHub Actions** (Settings → Pages → Build and
 deployment → Source).
 
 ## Code
 
-The page loads `src/main.js`, which connects these modules:
+The code is TypeScript. Vite strips the types when serving and building, and `tsc` checks them
+(`npm run typecheck`, and as part of `npm run build`). The page loads `src/main.ts`, which connects
+these modules:
 
 | Module        | Does                                                                       |
 | ------------- | -------------------------------------------------------------------------- |
-| `config.js`   | Settings and the scene layout                                              |
-| `graphics.js` | Renderer, camera, controls and lights; renders only when something changed |
-| `physics.js`  | The Ammo.js physics world, and the only module that uses Ammo              |
-| `world.js`    | Objects in the scene, each a mesh with a physics body                      |
-| `fracture.js` | Breaks objects that are hit hard enough                                    |
-| `launcher.js` | Fires projectiles from the camera                                          |
-| `input.js`    | Tells a click or tap from a camera drag                                    |
-| `level.js`    | Builds the ground and the stack of boxes                                   |
+| `config.ts`   | Settings and the scene layout                                              |
+| `graphics.ts` | Renderer, camera, controls and lights; renders only when something changed |
+| `physics.ts`  | The Ammo.js physics world, and the only module that uses Ammo              |
+| `world.ts`    | Objects in the scene, each a mesh with a physics body                      |
+| `fracture.ts` | Breaks objects that are hit hard enough                                    |
+| `launcher.ts` | Fires projectiles from the camera                                          |
+| `input.ts`    | Tells a click or tap from a camera drag                                    |
+| `level.ts`    | Builds the ground and the stack of boxes                                   |
+| `ammo.d.ts`   | Types for the parts of Ammo.js the code uses, as Ammo.js has none          |
 
 ## Dependencies
 

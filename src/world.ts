@@ -1,18 +1,51 @@
+import type { BufferGeometry, Material, Scene } from 'three';
 import { Mesh, Vector3 } from 'three';
-import { config } from './config.js';
+import { config } from './config.ts';
+import type { BodyHandle, Physics } from './physics.ts';
+
+// What a mesh needs for World.add: the fields createMesh sets
+export interface BodyData {
+    mass: number;
+    velocity: Vector3;
+    angularVelocity: Vector3;
+    breakable: boolean;
+}
+
+export interface AddOptions {
+    transient?: boolean;
+    sharedGeometry?: boolean;
+    sharedShape?: boolean;
+}
+
+// The fields World.add sets as well, described on World
+export interface ObjectData extends BodyData, Required<AddOptions> {
+    id: number;
+    body: BodyHandle;
+    shape: Ammo.btCollisionShape;
+}
+
+export type BodyMesh = Mesh & { userData: BodyData };
+export type WorldObject = Mesh & { userData: ObjectData };
 
 // Makes a mesh to pass to World.add. It sets the same userData fields as
 // ConvexObjectBreaker.prepareBreakableObject, which the breaker reads from objects it breaks.
-export function createMesh(geometry, material, position, mass, breakable = false) {
+export function createMesh(
+    geometry: BufferGeometry,
+    material: Material,
+    position: Vector3,
+    mass: number,
+    breakable = false,
+): BodyMesh {
     const mesh = new Mesh(geometry, material);
     mesh.position.copy(position);
-    Object.assign(mesh.userData, {
+    const data: BodyData = {
         mass,
         velocity: new Vector3(),
         angularVelocity: new Vector3(),
         breakable,
-    });
-    return mesh;
+    };
+    Object.assign(mesh.userData, data);
+    return mesh as BodyMesh;
 }
 
 // The objects in the scene, each a mesh with a physics body. Each mesh's userData holds:
@@ -23,20 +56,27 @@ export function createMesh(geometry, material, position, mass, breakable = false
 // - transient: whether it's a projectile or debris, removed oldest first beyond maxObjects
 // - sharedGeometry, sharedShape: whether the geometry and shape outlive the object
 export class World {
-    constructor(scene, physics) {
+    readonly scene: Scene;
+    readonly physics: Physics;
+    // Id -> mesh, oldest first
+    readonly objects = new Map<number, WorldObject>();
+    nextId = 0;
+    readonly toRemove = new Set<WorldObject>();
+    readonly removedIds = new Set<number>();
+
+    constructor(scene: Scene, physics: Physics) {
         this.scene = scene;
         this.physics = physics;
-        // Id -> mesh, oldest first
-        this.objects = new Map();
-        this.nextId = 0;
-        this.toRemove = new Set();
-        this.removedIds = new Set();
     }
 
-    add(mesh, shape, { transient = false, sharedGeometry = false, sharedShape = false } = {}) {
+    add(
+        mesh: BodyMesh,
+        shape: Ammo.btCollisionShape,
+        { transient = false, sharedGeometry = false, sharedShape = false }: AddOptions = {},
+    ): void {
         const data = mesh.userData;
         const id = this.nextId++;
-        data.body = this.physics.addBody(
+        const body = this.physics.addBody(
             id,
             shape,
             data.mass,
@@ -45,29 +85,30 @@ export class World {
             data.velocity,
             data.angularVelocity,
         );
-        Object.assign(data, { id, shape, transient, sharedGeometry, sharedShape });
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        this.objects.set(id, mesh);
-        this.scene.add(mesh);
+        Object.assign(data, { id, body, shape, transient, sharedGeometry, sharedShape });
+        const object = mesh as WorldObject;
+        object.castShadow = true;
+        object.receiveShadow = true;
+        this.objects.set(id, object);
+        this.scene.add(object);
     }
 
-    get(id) {
+    get(id: number): WorldObject | undefined {
         return this.objects.get(id);
     }
 
-    has(mesh) {
+    has(mesh: WorldObject): boolean {
         return this.objects.has(mesh.userData.id);
     }
 
     // Queues the object for removal at the end of the frame
-    remove(mesh) {
+    remove(mesh: WorldObject): void {
         this.toRemove.add(mesh);
     }
 
     // Moves meshes to their bodies and queues objects that fell off the world for removal.
     // Returns whether anything moved.
-    sync() {
+    sync(): boolean {
         let moved = false;
         for (const mesh of this.objects.values()) {
             if (!this.physics.readTransform(mesh.userData.body, mesh.position, mesh.quaternion)) {
@@ -80,7 +121,7 @@ export class World {
     }
 
     // Queues the oldest projectiles and debris for removal beyond the object limit
-    cull() {
+    cull(): void {
         let excess = this.objects.size - this.toRemove.size - config.world.maxObjects;
         for (const mesh of this.objects.values()) {
             if (excess <= 0) break;
@@ -92,7 +133,7 @@ export class World {
 
     // Removes queued objects and frees their bodies, and any shapes and geometries they don't
     // share. Returns whether anything was removed.
-    flush() {
+    flush(): boolean {
         if (this.toRemove.size === 0) return false;
         for (const mesh of this.toRemove) this.removedIds.add(mesh.userData.id);
         this.physics.wakeTouching(this.removedIds);

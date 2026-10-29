@@ -1,9 +1,11 @@
 import { BoxGeometry, MeshLambertMaterial, Vector3 } from 'three';
-import { config } from './config.js';
-import { createMesh } from './world.js';
+import { config } from './config.ts';
+import type { Physics } from './physics.ts';
+import type { World } from './world.ts';
+import { createMesh } from './world.ts';
 
 // Adds the ground and the stack of breakable boxes
-export function buildLevel(world, physics) {
+export function buildLevel(world: World, physics: Physics): void {
     const [width, height, depth] = config.ground.size;
     const ground = createMesh(
         new BoxGeometry(width, height, depth),
