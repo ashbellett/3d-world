@@ -1,13 +1,13 @@
 import { Timer } from 'three';
-import { Fracture } from './fracture.js';
-import { Graphics } from './graphics.js';
-import { onCanvasClick } from './input.js';
-import { Launcher } from './launcher.js';
-import { buildLevel } from './level.js';
-import { Physics } from './physics.js';
-import { World } from './world.js';
+import { Fracture } from './fracture.ts';
+import { Graphics } from './graphics.ts';
+import { onCanvasClick } from './input.ts';
+import { Launcher } from './launcher.ts';
+import { buildLevel } from './level.ts';
+import { Physics } from './physics.ts';
+import { World } from './world.ts';
 
-const graphics = new Graphics(document.getElementById('container'));
+const graphics = new Graphics(document.getElementById('container')!);
 // Show the sky while the physics engine loads
 graphics.render(false);
 

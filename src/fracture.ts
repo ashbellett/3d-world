@@ -1,6 +1,15 @@
+import type { Vector3 } from 'three';
 import { Quaternion } from 'three';
 import { ConvexObjectBreaker } from 'three/addons/misc/ConvexObjectBreaker.js';
-import { config } from './config.js';
+import { config } from './config.ts';
+import type { ContactFilter, ImpactHandler, Physics } from './physics.ts';
+import type { BodyMesh, World, WorldObject } from './world.ts';
+
+// Where an object was hit, in its local space
+interface Impact {
+    point: Vector3;
+    normal: Vector3;
+}
 
 const inverse = new Quaternion();
 
@@ -8,30 +17,33 @@ const inverse = new Quaternion();
 // config.fracture.maxPerFrame objects break each frame, so a shot that hits several boxes
 // doesn't stall a single frame; the rest wait in a queue.
 export class Fracture {
-    constructor(world, physics) {
+    readonly world: World;
+    readonly physics: Physics;
+    readonly breaker = new ConvexObjectBreaker();
+    // Mesh -> impact point and normal in the mesh's local space, which stay valid while the
+    // mesh moves
+    readonly queue = new Map<WorldObject, Impact>();
+    // Bound once, as they're called for every contact each frame
+    readonly accept: ContactFilter = (id0, id1) =>
+        this.canBreak(this.world.get(id0)) || this.canBreak(this.world.get(id1));
+    readonly onImpact: ImpactHandler = (id0, id1, impulse, point, normal) => {
+        if (impulse <= config.fracture.impulse) return;
+        this.enqueue(id0, point, normal);
+        this.enqueue(id1, point, normal);
+    };
+
+    constructor(world: World, physics: Physics) {
         this.world = world;
         this.physics = physics;
-        this.breaker = new ConvexObjectBreaker();
-        // Mesh -> impact point and normal in the mesh's local space, which stay valid while
-        // the mesh moves
-        this.queue = new Map();
-        // Bound once, as they're called for every contact each frame
-        this.accept = (id0, id1) => this.canBreak(id0) || this.canBreak(id1);
-        this.onImpact = (id0, id1, impulse, point, normal) => {
-            if (impulse <= config.fracture.impulse) return;
-            this.enqueue(id0, point, normal);
-            this.enqueue(id1, point, normal);
-        };
     }
 
-    canBreak(id) {
-        const mesh = this.world.get(id);
+    canBreak(mesh: WorldObject | undefined): mesh is WorldObject {
         return mesh !== undefined && mesh.userData.breakable && !this.queue.has(mesh);
     }
 
-    enqueue(id, point, normal) {
-        if (!this.canBreak(id)) return;
+    enqueue(id: number, point: Vector3, normal: Vector3): void {
         const mesh = this.world.get(id);
+        if (!this.canBreak(mesh)) return;
         inverse.copy(mesh.quaternion).invert();
         this.queue.set(mesh, {
             point: point.clone().sub(mesh.position).applyQuaternion(inverse),
@@ -39,7 +51,7 @@ export class Fracture {
         });
     }
 
-    update() {
+    update(): void {
         this.physics.forEachImpact(this.accept, this.onImpact);
         let remaining = config.fracture.maxPerFrame;
         for (const [mesh, impact] of this.queue) {
@@ -52,7 +64,7 @@ export class Fracture {
         }
     }
 
-    shatter(mesh, { point, normal }) {
+    shatter(mesh: WorldObject, { point, normal }: Impact): void {
         const data = mesh.userData;
         point.applyQuaternion(mesh.quaternion).add(mesh.position);
         normal.applyQuaternion(mesh.quaternion);
@@ -75,7 +87,7 @@ export class Fracture {
             return;
         }
         if (debris.length === 0) return;
-        for (const fragment of debris) {
+        for (const fragment of debris as BodyMesh[]) {
             const shape = this.physics.createHullShape(fragment.geometry.attributes.position.array);
             this.world.add(fragment, shape, { transient: true });
         }

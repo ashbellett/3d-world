@@ -1,8 +1,11 @@
-import { config } from './config.js';
+import { config } from './config.ts';
 
 // Calls onClick(x, y), in normalised device coordinates, when the canvas is clicked or tapped,
 // but not at the end of a camera drag or pinch
-export function onCanvasClick(canvas, onClick) {
+export function onCanvasClick(
+    canvas: HTMLCanvasElement,
+    onClick: (x: number, y: number) => void,
+): void {
     let pressed = false;
     let startX = 0;
     let startY = 0;

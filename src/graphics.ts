@@ -7,11 +7,19 @@ import {
     WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { config } from './config.js';
+import { config } from './config.ts';
 
 // Renderer, camera, camera controls and lights. Only renders when something has changed.
 export class Graphics {
-    constructor(container) {
+    readonly renderer: WebGLRenderer;
+    readonly canvas: HTMLCanvasElement;
+    readonly camera: PerspectiveCamera;
+    readonly controls: OrbitControls;
+    readonly scene: Scene;
+    // Whether the camera or canvas changed since the last render
+    needsRender = true;
+
+    constructor(container: HTMLElement) {
         this.renderer = new WebGLRenderer({ antialias: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.canvas.maxPixelRatio));
         this.renderer.shadowMap.enabled = true;
@@ -35,12 +43,11 @@ export class Graphics {
         this.scene.background = new Color(config.background);
         this.addLights();
 
-        this.needsRender = true;
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
 
-    addLights() {
+    addLights(): void {
         const { ambient, directional } = config.lights;
         this.scene.add(new AmbientLight(ambient.colour, ambient.intensity));
 
@@ -61,7 +68,7 @@ export class Graphics {
         this.scene.add(light);
     }
 
-    resize() {
+    resize(): void {
         const width = Math.min(window.innerWidth, config.canvas.maxWidth);
         const height = Math.min(window.innerHeight, config.canvas.maxHeight);
         this.camera.aspect = width / height;
@@ -71,7 +78,7 @@ export class Graphics {
     }
 
     // Renders if the scene changed or the camera or canvas changed since the last render
-    render(sceneChanged) {
+    render(sceneChanged: boolean): void {
         if (sceneChanged) {
             this.renderer.shadowMap.needsUpdate = true;
         } else if (!this.needsRender) {

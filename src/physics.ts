@@ -1,10 +1,35 @@
+import type { Quaternion } from 'three';
 import { Vector3 } from 'three';
-import { config } from './config.js';
+import { config } from './config.ts';
+
+// A body and the motion state it owns, as returned by Physics.addBody
+export interface BodyHandle {
+    body: Ammo.btRigidBody;
+    motionState: Ammo.btDefaultMotionState;
+}
+
+export type ContactFilter = (id0: number, id1: number) => boolean;
+export type ImpactHandler = (
+    id0: number,
+    id1: number,
+    impulse: number,
+    point: Vector3,
+    normal: Vector3,
+) => void;
 
 // The Ammo.js (Bullet) physics world: the only module that uses Ammo. Each body has a numeric
 // id, stored as its user index, which contact queries report. Shapes can be shared by bodies.
 export class Physics {
-    constructor(ammo) {
+    readonly ammo: typeof Ammo;
+    readonly transform: Ammo.btTransform;
+    readonly vector: Ammo.btVector3;
+    readonly quaternion: Ammo.btQuaternion;
+    readonly impactPoint: Vector3;
+    readonly impactNormal: Vector3;
+    readonly dispatcher: Ammo.btCollisionDispatcher;
+    readonly world: Ammo.btDiscreteDynamicsWorld;
+
+    constructor(ammo: typeof Ammo) {
         this.ammo = ammo;
         // Reusable temporaries (Bullet copies their values)
         this.transform = new ammo.btTransform();
@@ -27,7 +52,7 @@ export class Physics {
 
     // A box collides at its size, but a hull collides at its size plus the margin. The margin
     // is added so boxes rest the same distance apart as debris, leaving visible gaps.
-    createBoxShape(width, height, depth) {
+    createBoxShape(width: number, height: number, depth: number): Ammo.btBoxShape {
         const { margin } = config.physics;
         this.vector.setValue(width / 2 + margin, height / 2 + margin, depth / 2 + margin);
         const shape = new this.ammo.btBoxShape(this.vector);
@@ -35,15 +60,15 @@ export class Physics {
         return shape;
     }
 
-    createSphereShape(radius) {
+    createSphereShape(radius: number): Ammo.btSphereShape {
         return new this.ammo.btSphereShape(radius);
     }
 
     // Takes a geometry's position array. Geometries repeat a vertex for each face that uses it,
     // and collision tests loop over every point in a hull, so duplicates are skipped.
-    createHullShape(positions) {
+    createHullShape(positions: ArrayLike<number>): Ammo.btConvexHullShape {
         const shape = new this.ammo.btConvexHullShape();
-        const seen = new Set();
+        const seen = new Set<string>();
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i];
             const y = positions[i + 1];
@@ -59,13 +84,21 @@ export class Physics {
         return shape;
     }
 
-    destroyShape(shape) {
+    destroyShape(shape: Ammo.btCollisionShape): void {
         this.ammo.destroy(shape);
     }
 
     // Takes three.js vectors and a quaternion, and returns a handle for the other body methods.
     // A mass of 0 makes the body static.
-    addBody(id, shape, mass, position, quaternion, velocity, angularVelocity) {
+    addBody(
+        id: number,
+        shape: Ammo.btCollisionShape,
+        mass: number,
+        position: Vector3,
+        quaternion: Quaternion,
+        velocity: Vector3,
+        angularVelocity: Vector3,
+    ): BodyHandle {
         const { ammo, transform, vector } = this;
         transform.setIdentity();
         vector.setValue(position.x, position.y, position.z);
@@ -89,7 +122,7 @@ export class Physics {
     }
 
     // Frees the body but not its shape
-    removeBody({ body, motionState }) {
+    removeBody({ body, motionState }: BodyHandle): void {
         this.world.removeRigidBody(body);
         this.ammo.destroy(body);
         this.ammo.destroy(motionState);
@@ -97,7 +130,11 @@ export class Physics {
 
     // Copies the body's transform into a three.js position and quaternion. Returns false,
     // without copying, if the body is asleep.
-    readTransform({ body, motionState }, position, quaternion) {
+    readTransform(
+        { body, motionState }: BodyHandle,
+        position: Vector3,
+        quaternion: Quaternion,
+    ): boolean {
         if (!body.isActive()) return false;
         motionState.getWorldTransform(this.transform);
         const origin = this.transform.getOrigin();
@@ -107,21 +144,21 @@ export class Physics {
         return true;
     }
 
-    readVelocity({ body }, velocity, angularVelocity) {
+    readVelocity({ body }: BodyHandle, velocity: Vector3, angularVelocity: Vector3): void {
         const linear = body.getLinearVelocity();
         const angular = body.getAngularVelocity();
         velocity.set(linear.x(), linear.y(), linear.z());
         angularVelocity.set(angular.x(), angular.y(), angular.z());
     }
 
-    step(delta) {
+    step(delta: number): void {
         this.world.stepSimulation(delta, config.physics.maxSubSteps);
     }
 
     // For each pair of touching bodies that accept(id0, id1) allows, finds the contact with the
     // largest impulse in the last step and calls onImpact(id0, id1, impulse, point, normal).
     // The point and normal are three.js vectors that are reused between calls.
-    forEachImpact(accept, onImpact) {
+    forEachImpact(accept: ContactFilter, onImpact: ImpactHandler): void {
         for (let i = 0, count = this.dispatcher.getNumManifolds(); i < count; i++) {
             const manifold = this.dispatcher.getManifoldByIndexInternal(i);
             const contacts = manifold.getNumContacts();
@@ -149,7 +186,7 @@ export class Physics {
 
     // Wakes bodies touching any of the given ids, so that removing those bodies doesn't leave
     // anything asleep in mid-air
-    wakeTouching(ids) {
+    wakeTouching(ids: ReadonlySet<number>): void {
         for (let i = 0, count = this.dispatcher.getNumManifolds(); i < count; i++) {
             const manifold = this.dispatcher.getManifoldByIndexInternal(i);
             const body0 = manifold.getBody0();
