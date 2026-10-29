@@ -43,11 +43,10 @@ function stack(count: Vec3, size: number): Vec3[] {
     return positions;
 }
 
-// Masses and impulses for the ruins are the three.js "Convex object breaking" example's, scaled
+// Masses and impulses for the bridge are the three.js "Convex object breaking" example's, scaled
 // to the projectile here
 const towerHeight = 10;
 const slabCount = 8;
-const pyramidHeight = 10;
 
 export const levels: LevelSpec[] = [
     {
@@ -63,7 +62,7 @@ export const levels: LevelSpec[] = [
         ],
     },
     {
-        name: 'Ruins',
+        name: 'Bridge',
         blocks: [
             {
                 shape: { box: [4, towerHeight, 4] },
@@ -83,6 +82,11 @@ export const levels: LevelSpec[] = [
                 breakImpulse: 60,
                 positions: [[0, towerHeight + 2 * gap + 0.2, 0]],
             },
+        ],
+    },
+    {
+        name: 'Dominoes',
+        blocks: [
             // A row of standing slabs
             {
                 shape: { box: [2, 4, 0.3] },
@@ -94,22 +98,6 @@ export const levels: LevelSpec[] = [
                     2 + gap,
                     15 * (0.5 - i / (slabCount + 1)),
                 ]),
-            },
-            // A square pyramid, whose centre of mass is a quarter of the way up
-            {
-                shape: {
-                    hull: [
-                        [4, -pyramidHeight / 4, 4],
-                        [-4, -pyramidHeight / 4, 4],
-                        [4, -pyramidHeight / 4, -4],
-                        [-4, -pyramidHeight / 4, -4],
-                        [0, (pyramidHeight * 3) / 4, 0],
-                    ],
-                },
-                mass: 250,
-                colour: 0xb03814,
-                breakImpulse: 150,
-                positions: [[5.5, pyramidHeight / 4 + gap, -7]],
             },
         ],
     },
