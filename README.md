@@ -70,7 +70,7 @@ Three.js add-ons:
 Three.js code examples:
 
 - ["Convex object breaking"](https://threejs.org/examples/#physics_ammo_break), whose scene is the
-  Ruins level
+  Bridge level
 
 ## To Do
 
