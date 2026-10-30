@@ -28,11 +28,12 @@ export const config = {
     },
     physics: {
         gravity: 10,
+        // Longest step in seconds, and most steps a frame
+        timestep: 1 / 60,
         maxSubSteps: 10,
-        margin: 0.02,
+        // The two bodies' frictions and restitutions are multiplied, so a contact bounces back
+        // at a quarter of its speed
         friction: 0.5,
-        // Bullet multiplies the two bodies' restitutions, so a contact bounces back at a quarter
-        // of its speed
         restitution: 0.5,
     },
     fracture: {

@@ -8,7 +8,6 @@ import { Launcher } from './launcher.ts';
 import { LevelLoader } from './level.ts';
 import { levels } from './levels.ts';
 import { createLevelMenu } from './menu.ts';
-import { Physics } from './physics.ts';
 import { World } from './world.ts';
 
 // ?backend=webgl renders with WebGL 2 even where WebGPU is available, to compare the two
@@ -19,13 +18,13 @@ function graphicsOptionsFromUrl(): GraphicsOptions {
     throw new Error(`Unknown backend "${backend}" in the URL: use webgpu or webgl`);
 }
 
+// Rapier is a large download, so it loads while the renderer starts
+const physicsReady = import('./physics.ts').then(({ Physics }) => Physics.create());
 const container = document.getElementById('container')!;
 const graphics = await Graphics.create(container, graphicsOptionsFromUrl());
 // Show the sky while the physics engine loads
 graphics.render(false);
-
-// Ammo is defined by public/lib/ammo/ammo.wasm.js, which index.html loads
-const physics = new Physics(await Ammo());
+const physics = await physicsReady;
 const world = new World(graphics.scene, physics);
 const fracture = new Fracture(world, physics);
 const launcher = new Launcher(world, physics, graphics.camera);

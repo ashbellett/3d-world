@@ -21,8 +21,7 @@ export interface LevelSpec {
     blocks: BlockSpec[];
 }
 
-// Space left between objects, and under them, so that they start at rest. It must be more than
-// twice the collision margin.
+// Space left between objects, and under them, so that they start at rest
 const gap = 0.05;
 
 // Positions for a grid of cubes, centred on the ground
