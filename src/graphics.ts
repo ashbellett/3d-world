@@ -1,4 +1,4 @@
-import type { DirectionalLightShadow, Object3D } from 'three/webgpu';
+import type { DirectionalLightShadow } from 'three/webgpu';
 import {
     AmbientLight,
     Color,
@@ -101,12 +101,6 @@ export class Graphics {
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
         this.needsRender = true;
-    }
-
-    // Compiles the shaders for drawing the object in the scene, so the first frame that draws
-    // something like it doesn't wait for them
-    async precompile(object: Object3D): Promise<void> {
-        await this.renderer.compileAsync(object, this.camera, this.scene);
     }
 
     // Renders if the scene changed or the camera or canvas changed since the last render

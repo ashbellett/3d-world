@@ -66,11 +66,12 @@ modules:
 | `levels.ts`   | The levels: each object's shape, mass, colour, break strength and position |
 | `graphics.ts` | Renderer, camera, controls and lights; renders only when something changed |
 | `physics.ts`  | The Rapier physics world, and the only module that uses Rapier             |
-| `world.ts`    | Objects in the scene, each a mesh with a physics body                      |
+| `world.ts`    | Objects in the world, each a physics body drawn by the batch               |
+| `batch.ts`    | Draws every object in one draw call, as instances of a `BatchedMesh`       |
 | `fracture.ts` | Breaks objects that are hit harder than their break strength               |
 | `launcher.ts` | Fires projectiles from the camera                                          |
 | `input.ts`    | Tells a click or tap from a camera drag                                    |
-| `level.ts`    | Builds the ground, with its grid, and a level's objects                    |
+| `level.ts`    | Adds the ground, with its grid, and builds a level's objects               |
 | `menu.ts`     | The level buttons                                                          |
 | `bench.ts`    | The benchmark that `?bench` runs                                           |
 | `profiler.ts` | Times each stage of a frame and summarises the times                       |

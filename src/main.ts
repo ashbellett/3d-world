@@ -1,11 +1,13 @@
-import { Timer } from 'three/webgpu';
+import { MeshLambertMaterial, Timer } from 'three/webgpu';
+import { Batch } from './batch.ts';
 import { Bench } from './bench.ts';
+import { config } from './config.ts';
 import { Fracture } from './fracture.ts';
 import type { GraphicsOptions } from './graphics.ts';
 import { Graphics } from './graphics.ts';
 import { onCanvasClick } from './input.ts';
 import { Launcher } from './launcher.ts';
-import { LevelLoader } from './level.ts';
+import { LevelLoader, addGround } from './level.ts';
 import { levels } from './levels.ts';
 import { createLevelMenu } from './menu.ts';
 import { World } from './world.ts';
@@ -36,7 +38,11 @@ async function start(container: HTMLElement): Promise<void> {
     // Show the sky while the physics engine loads
     graphics.render(false);
     const physics = await physicsReady;
-    const world = new World(graphics.scene, physics);
+    // White, so each object's colour is its own
+    const batch = new Batch(new MeshLambertMaterial(), config.batch);
+    graphics.scene.add(batch.mesh);
+    addGround(graphics.scene, physics);
+    const world = new World(batch, physics);
     const fracture = new Fracture(world, physics);
     const launcher = new Launcher(world, physics, graphics.camera);
     const loader = new LevelLoader(world, physics);
@@ -44,10 +50,6 @@ async function start(container: HTMLElement): Promise<void> {
     const bench = Bench.fromUrl(levelNames);
     createLevelMenu(container, levelNames, (index) => loader.load(levels[index]), bench?.level);
     onCanvasClick(graphics.canvas, (x, y) => launcher.fire(x, y));
-    // Every object is Lambert, like the projectile, so one sample covers all debris
-    const sample = Fracture.sampleDebris(launcher.material);
-    await graphics.precompile(sample);
-    sample.geometry.dispose();
 
     const timer = new Timer();
     timer.connect(document);
