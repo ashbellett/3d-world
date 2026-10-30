@@ -80,8 +80,10 @@ modules:
 Installed from npm, with versions in `package.json`:
 
 - [Three.js](https://github.com/mrdoob/three.js), using its `WebGPURenderer`
-- [Rapier](https://rapier.rs), a physics engine written in Rust and compiled to WebAssembly. The
-  `-compat` package inlines the WebAssembly in its JavaScript, so it needs no bundler plugin.
+- [Rapier](https://rapier.rs), a physics engine written in Rust and compiled to WebAssembly, in its
+  SIMD build, which needs WebAssembly SIMD (in every browser with WebGPU, and Safari 16.4 and
+  later). Its package imports the WebAssembly as a module, which
+  [vite-plugin-wasm](https://github.com/Menci/vite-plugin-wasm) handles.
 
 ## Credit
 

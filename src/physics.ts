@@ -1,5 +1,5 @@
-import RAPIER from '@dimforge/rapier3d-compat';
-import type { Collider, RigidBody, Shape } from '@dimforge/rapier3d-compat';
+import RAPIER from '@dimforge/rapier3d-simd';
+import type { Collider, RigidBody, Shape } from '@dimforge/rapier3d-simd';
 import { Quaternion, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
 
@@ -79,8 +79,8 @@ export function spansVolume(coordinates: ArrayLike<number>, minThickness: number
 }
 
 // The Rapier physics world: the only module that uses Rapier. Each body has a numeric id, which
-// impacts report. Shapes can be shared by bodies. Make one with Physics.create, as Rapier's
-// WebAssembly starts asynchronously.
+// impacts report. Shapes can be shared by bodies. Importing this module loads Rapier's
+// WebAssembly, so it's imported dynamically, to load while the renderer starts.
 export class Physics {
     readonly engineName = 'Rapier';
     readonly world: RAPIER.World;
@@ -94,12 +94,7 @@ export class Physics {
     accumulator = 0;
     alpha = 0;
 
-    static async create(): Promise<Physics> {
-        await RAPIER.init();
-        return new Physics();
-    }
-
-    private constructor() {
+    constructor() {
         this.world = new RAPIER.World({ x: 0, y: -config.physics.gravity, z: 0 });
         this.world.timestep = config.physics.timestep;
     }
