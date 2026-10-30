@@ -1,19 +1,21 @@
-import type { BufferGeometry, Material } from 'three/webgpu';
+import type { BufferGeometry, Scene } from 'three/webgpu';
 import {
     BoxGeometry,
     CanvasTexture,
     Color,
+    Mesh,
     MeshLambertMaterial,
+    Quaternion,
     RepeatWrapping,
     SRGBColorSpace,
     Vector3,
 } from 'three/webgpu';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { Batch } from './batch.ts';
 import { config } from './config.ts';
 import type { BlockSpec, LevelSpec } from './levels.ts';
 import type { Physics, Shape } from './physics.ts';
 import type { World } from './world.ts';
-import { createMesh } from './world.ts';
 
 // A tile of the ground's grid: one cell, with lines along two of its edges
 function createGridTexture(): CanvasTexture {
@@ -39,52 +41,55 @@ function createGridTexture(): CanvasTexture {
     return texture;
 }
 
-// Builds levels: the ground, and the level's breakable objects. Loading a level removes
-// everything in the world first, and frees what the last level's objects shared.
+// The ground's body id, which no world object has
+const groundId = -1;
+
+// Adds the ground, with its grid on top, and its body. It isn't a world object, so it stays for
+// every level, and as it has its own materials, it isn't in the batch.
+export function addGround(scene: Scene, physics: Physics): void {
+    const [width, height, depth] = config.ground.size;
+    const side = new MeshLambertMaterial({ color: config.ground.colour });
+    const top = new MeshLambertMaterial({ color: config.ground.colour, map: createGridTexture() });
+    // In BoxGeometry's face order: +x, -x, +y, -y, +z, -z
+    const ground = new Mesh(new BoxGeometry(width, height, depth), [
+        side,
+        side,
+        top,
+        side,
+        side,
+        side,
+    ]);
+    ground.position.set(0, -height / 2, 0);
+    // Everything is above it, so it has nothing to cast a shadow on
+    ground.receiveShadow = true;
+    scene.add(ground);
+    physics.addBody(groundId, physics.createBoxShape(width, height, depth), {
+        mass: 0,
+        position: ground.position,
+        quaternion: new Quaternion(),
+        velocity: new Vector3(),
+        angularVelocity: new Vector3(),
+    });
+}
+
+// Builds levels' breakable objects. Loading a level removes everything in the world first, and
+// frees the geometries the last level's objects shared.
 export class LevelLoader {
     readonly world: World;
     readonly physics: Physics;
-    // The grid on top of the ground, plain on its sides. Kept for every level.
-    readonly groundMaterials: Material[];
-    // Shared by the current level's objects
-    geometries: BufferGeometry[] = [];
-    materials: Material[] = [];
+    // The batch ids of the geometries the current level's objects share
+    geometryIds: number[] = [];
 
     constructor(world: World, physics: Physics) {
         this.world = world;
         this.physics = physics;
-        const side = new MeshLambertMaterial({ color: config.ground.colour });
-        const top = new MeshLambertMaterial({
-            color: config.ground.colour,
-            map: createGridTexture(),
-        });
-        // In BoxGeometry's face order: +x, -x, +y, -y, +z, -z
-        this.groundMaterials = [side, side, top, side, side, side];
     }
 
     load(level: LevelSpec): void {
         this.world.clear();
-        this.free();
-        this.addGround();
+        for (const id of this.geometryIds) this.world.batch.removeGeometry(id);
+        this.geometryIds = [];
         for (const block of level.blocks) this.addBlocks(block);
-    }
-
-    free(): void {
-        for (const geometry of this.geometries) geometry.dispose();
-        for (const material of this.materials) material.dispose();
-        this.geometries = [];
-        this.materials = [];
-    }
-
-    addGround(): void {
-        const [width, height, depth] = config.ground.size;
-        const ground = createMesh(
-            new BoxGeometry(width, height, depth),
-            this.groundMaterials,
-            new Vector3(0, -height / 2, 0),
-            0,
-        );
-        this.world.add(ground, this.physics.createBoxShape(width, height, depth));
     }
 
     addBlocks({ shape, mass, colour, breakImpulse, positions }: BlockSpec): void {
@@ -92,26 +97,27 @@ export class LevelLoader {
         let collisionShape: Shape;
         if ('box' in shape) {
             const [width, height, depth] = shape.box;
-            geometry = new BoxGeometry(width, height, depth);
+            geometry = Batch.prepare(new BoxGeometry(width, height, depth));
             collisionShape = this.physics.createBoxShape(width, height, depth);
         } else {
             geometry = new ConvexGeometry(shape.hull.map((point) => new Vector3(...point)));
             collisionShape = this.physics.createHullShape(geometry.attributes.position.array);
         }
-        const material = new MeshLambertMaterial({ color: colour });
-        this.geometries.push(geometry);
-        this.materials.push(material);
-
-        const position = new Vector3();
+        const geometryId = this.world.batch.addGeometry(geometry);
+        this.geometryIds.push(geometryId);
+        const blockColour = new Color(colour);
         for (const point of positions) {
-            const mesh = createMesh(
-                geometry,
-                material,
-                position.fromArray(point),
-                mass,
-                breakImpulse,
+            this.world.add(
+                {
+                    geometry,
+                    geometryId,
+                    colour: blockColour,
+                    mass,
+                    position: new Vector3(...point),
+                    breakImpulse,
+                },
+                collisionShape,
             );
-            this.world.add(mesh, collisionShape, { sharedGeometry: true });
         }
     }
 }

@@ -65,6 +65,11 @@ export const config = {
             lineWidth: 2,
         },
     },
+    // Room the batch that draws the objects starts with. It grows if it needs more.
+    batch: {
+        instances: 256,
+        vertices: 65536,
+    },
     world: {
         // Oldest projectiles and debris are removed beyond this many objects
         maxObjects: 200,

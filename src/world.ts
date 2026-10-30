@@ -1,155 +1,161 @@
-import type { BufferGeometry, Material, Scene } from 'three/webgpu';
-import { Mesh, Vector3 } from 'three/webgpu';
+import type { BufferGeometry, Color } from 'three/webgpu';
+import { Quaternion, Vector3 } from 'three/webgpu';
+import type { Batch } from './batch.ts';
 import { config } from './config.ts';
 import type { BodyHandle, Physics, Shape } from './physics.ts';
 
-// What a mesh needs for World.add: the fields createMesh sets
-export interface BodyData {
+// What World.add makes an object from
+export interface ObjectSpec {
+    // From Batch.prepare
+    geometry: BufferGeometry;
+    // The geometry's id in the batch, if it's shared by other objects and outlives them.
+    // Otherwise the object adds the geometry to the batch, and removes it when it's removed.
+    geometryId?: number;
+    colour: Color;
+    // 0 makes it static
     mass: number;
-    velocity: Vector3;
-    angularVelocity: Vector3;
-    breakable: boolean;
-    // Contact impulse above which it breaks, if breakable
-    breakImpulse: number;
-}
-
-export interface AddOptions {
+    position: Vector3;
+    quaternion?: Quaternion;
+    velocity?: Vector3;
+    angularVelocity?: Vector3;
+    // Contact impulse above which it breaks. Without one, it doesn't.
+    breakImpulse?: number;
+    // A projectile or debris, removed oldest first beyond config.world.maxObjects
     transient?: boolean;
-    sharedGeometry?: boolean;
+    // Small and fast, so collides along its path, as Physics describes
     continuous?: boolean;
 }
 
-// The fields World.add sets as well, described on World
-export interface ObjectData extends BodyData, Required<AddOptions> {
-    id: number;
-    body: BodyHandle;
+// An object in the world: a physics body, drawn as an instance in the batch
+export interface WorldObject {
+    readonly id: number;
+    readonly body: BodyHandle;
+    readonly geometry: BufferGeometry;
+    readonly geometryId: number;
+    readonly sharedGeometry: boolean;
+    readonly instance: number;
+    readonly colour: Color;
+    readonly mass: number;
+    // Infinity if it doesn't break
+    readonly breakImpulse: number;
+    readonly transient: boolean;
+    // Where it's drawn, which sync updates
+    readonly position: Vector3;
+    readonly quaternion: Quaternion;
 }
 
-export type BodyMesh = Mesh & { userData: BodyData };
-export type WorldObject = Mesh & { userData: ObjectData };
-
-// Makes a mesh to pass to World.add. A breakImpulse makes it breakable. It sets the same
-// userData fields as ConvexObjectBreaker.prepareBreakableObject, which the breaker reads from
-// objects it breaks, and breakImpulse, which Fracture reads.
-export function createMesh(
-    geometry: BufferGeometry,
-    material: Material | Material[],
-    position: Vector3,
-    mass: number,
-    breakImpulse?: number,
-): BodyMesh {
-    const mesh = new Mesh(geometry, material);
-    mesh.position.copy(position);
-    const data: BodyData = {
-        mass,
-        velocity: new Vector3(),
-        angularVelocity: new Vector3(),
-        breakable: breakImpulse !== undefined,
-        breakImpulse: breakImpulse ?? Infinity,
-    };
-    Object.assign(mesh.userData, data);
-    return mesh as BodyMesh;
-}
-
-// The objects in the scene, each a mesh with a physics body. Each mesh's userData holds:
-// - mass, velocity, angularVelocity, breakable, breakImpulse: from createMesh, or from
-//   ConvexObjectBreaker and Fracture for debris
-// - id: the body's id
-// - body: the body's handle from Physics.addBody
-// - transient: whether it's a projectile or debris, removed oldest first beyond maxObjects
-// - sharedGeometry: whether the geometry outlives the object
-// - continuous: whether it's small and fast, so collides along its path, as Physics describes
+// The objects in the world, each a physics body drawn as an instance in the batch
 export class World {
-    readonly scene: Scene;
+    readonly batch: Batch;
     readonly physics: Physics;
-    // Id -> mesh, oldest first
+    // Id -> object, oldest first
     readonly objects = new Map<number, WorldObject>();
     nextId = 0;
     readonly toRemove = new Set<WorldObject>();
 
-    constructor(scene: Scene, physics: Physics) {
-        this.scene = scene;
+    constructor(batch: Batch, physics: Physics) {
+        this.batch = batch;
         this.physics = physics;
     }
 
-    add(
-        mesh: BodyMesh,
-        shape: Shape,
-        { transient = false, sharedGeometry = false, continuous = false }: AddOptions = {},
-    ): void {
-        const data = mesh.userData;
+    add(spec: ObjectSpec, shape: Shape): WorldObject {
+        const {
+            geometry,
+            colour,
+            mass,
+            position,
+            quaternion = new Quaternion(),
+            velocity = new Vector3(),
+            angularVelocity = new Vector3(),
+            breakImpulse = Infinity,
+            transient = false,
+            continuous = false,
+        } = spec;
         const id = this.nextId++;
         const body = this.physics.addBody(id, shape, {
-            mass: data.mass,
-            position: mesh.position,
-            quaternion: mesh.quaternion,
-            velocity: data.velocity,
-            angularVelocity: data.angularVelocity,
-            impactThreshold: data.breakImpulse,
+            mass,
+            position,
+            quaternion,
+            velocity,
+            angularVelocity,
+            impactThreshold: breakImpulse,
             continuous,
         });
-        Object.assign(data, { id, body, transient, sharedGeometry, continuous });
-        const object = mesh as WorldObject;
-        object.castShadow = true;
-        object.receiveShadow = true;
+        const sharedGeometry = spec.geometryId !== undefined;
+        const geometryId = spec.geometryId ?? this.batch.addGeometry(geometry);
+        const instance = this.batch.addInstance(geometryId, colour);
+        const object: WorldObject = {
+            id,
+            body,
+            geometry,
+            geometryId,
+            sharedGeometry,
+            instance,
+            colour,
+            mass,
+            breakImpulse,
+            transient,
+            position: position.clone(),
+            quaternion: quaternion.clone(),
+        };
+        this.batch.setTransform(instance, object.position, object.quaternion);
         this.objects.set(id, object);
-        this.scene.add(object);
+        return object;
     }
 
     get(id: number): WorldObject | undefined {
         return this.objects.get(id);
     }
 
-    has(mesh: WorldObject): boolean {
-        return this.objects.has(mesh.userData.id);
+    has(object: WorldObject): boolean {
+        return this.objects.has(object.id);
     }
 
     // Queues the object for removal at the end of the frame
-    remove(mesh: WorldObject): void {
-        this.toRemove.add(mesh);
+    remove(object: WorldObject): void {
+        this.toRemove.add(object);
     }
 
-    // Moves meshes to their bodies and queues objects that fell off the world for removal.
+    // Moves objects to their bodies and queues objects that fell off the world for removal.
     // Returns whether anything moved.
     sync(): boolean {
         let moved = false;
-        for (const mesh of this.objects.values()) {
-            if (!this.physics.readTransform(mesh.userData.body, mesh.position, mesh.quaternion)) {
-                continue;
-            }
+        for (const object of this.objects.values()) {
+            const { body, instance, position, quaternion } = object;
+            if (!this.physics.readTransform(body, position, quaternion)) continue;
+            this.batch.setTransform(instance, position, quaternion);
             moved = true;
-            if (mesh.position.y < config.world.minY) this.toRemove.add(mesh);
+            if (position.y < config.world.minY) this.toRemove.add(object);
         }
         return moved;
     }
 
     // Removes every object now, rather than at the end of the frame
     clear(): void {
-        for (const mesh of this.objects.values()) this.toRemove.add(mesh);
+        for (const object of this.objects.values()) this.toRemove.add(object);
         this.flush();
     }
 
     // Queues the oldest projectiles and debris for removal beyond the object limit
     cull(): void {
         let excess = this.objects.size - this.toRemove.size - config.world.maxObjects;
-        for (const mesh of this.objects.values()) {
+        for (const object of this.objects.values()) {
             if (excess <= 0) break;
-            if (!mesh.userData.transient || this.toRemove.has(mesh)) continue;
-            this.toRemove.add(mesh);
+            if (!object.transient || this.toRemove.has(object)) continue;
+            this.toRemove.add(object);
             excess--;
         }
     }
 
-    // Removes queued objects and frees their bodies, and any geometries they don't share.
+    // Removes queued objects, their bodies and instances, and any geometries they don't share.
     // Returns whether anything was removed.
     flush(): boolean {
         if (this.toRemove.size === 0) return false;
-        for (const mesh of this.toRemove) {
-            const { id, body, sharedGeometry } = mesh.userData;
-            this.physics.removeBody(body);
-            if (!sharedGeometry) mesh.geometry.dispose();
-            this.scene.remove(mesh);
-            this.objects.delete(id);
+        for (const object of this.toRemove) {
+            this.physics.removeBody(object.body);
+            this.batch.removeInstance(object.instance);
+            if (!object.sharedGeometry) this.batch.removeGeometry(object.geometryId);
+            this.objects.delete(object.id);
         }
         this.toRemove.clear();
         return true;
