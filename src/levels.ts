@@ -22,7 +22,7 @@ export interface LevelSpec {
 }
 
 // Space left between objects, and under them, so that they start at rest
-const gap = 0.05;
+const gap = 0.01;
 
 // Positions for a grid of cubes, centred on the ground
 function stack(count: Vec3, size: number): Vec3[] {

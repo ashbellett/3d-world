@@ -9,6 +9,12 @@ canvas {
     display: block;
 }
 
+.start-error {
+    max-width: 40em;
+    margin: 0;
+    padding: 16px;
+}
+
 .level-menu {
     position: fixed;
     top: 8px;

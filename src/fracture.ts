@@ -1,5 +1,6 @@
-import type { Vector3 } from 'three/webgpu';
-import { Quaternion } from 'three/webgpu';
+import type { Material } from 'three/webgpu';
+import { Mesh, Quaternion, Vector3 } from 'three/webgpu';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { ConvexObjectBreaker } from 'three/addons/misc/ConvexObjectBreaker.js';
 import { config } from './config.ts';
 import type { ImpactHandler, Physics, Shape } from './physics.ts';
@@ -32,6 +33,21 @@ export class Fracture {
     constructor(world: World, physics: Physics) {
         this.world = world;
         this.physics = physics;
+    }
+
+    // A mesh like the debris of an object with this material, to compile its shaders before
+    // anything breaks. Debris geometries have fewer attributes than the objects', so need their own.
+    static sampleDebris(material: Material): Mesh {
+        const corners = [
+            new Vector3(),
+            new Vector3(1, 0, 0),
+            new Vector3(0, 1, 0),
+            new Vector3(0, 0, 1),
+        ];
+        const mesh = new Mesh(new ConvexGeometry(corners), material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
     }
 
     canBreak(mesh: WorldObject | undefined): mesh is WorldObject {

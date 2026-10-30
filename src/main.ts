@@ -18,38 +18,57 @@ function graphicsOptionsFromUrl(): GraphicsOptions {
     throw new Error(`Unknown backend "${backend}" in the URL: use webgpu or webgl`);
 }
 
-// Rapier is a large download, so it loads while the renderer starts
-const physicsReady = import('./physics.ts').then(({ Physics }) => Physics.create());
-const container = document.getElementById('container')!;
-const graphics = await Graphics.create(container, graphicsOptionsFromUrl());
-// Show the sky while the physics engine loads
-graphics.render(false);
-const physics = await physicsReady;
-const world = new World(graphics.scene, physics);
-const fracture = new Fracture(world, physics);
-const launcher = new Launcher(world, physics, graphics.camera);
-const loader = new LevelLoader(world, physics);
-const levelNames = levels.map((level) => level.name);
-const bench = Bench.fromUrl(levelNames);
-createLevelMenu(container, levelNames, (index) => loader.load(levels[index]), bench?.level);
-onCanvasClick(graphics.canvas, (x, y) => launcher.fire(x, y));
+// Shows why the page couldn't start, which would otherwise leave it blank
+function showStartError(container: HTMLElement, error: unknown): void {
+    console.error(error);
+    const message = document.createElement('p');
+    message.className = 'start-error';
+    message.setAttribute('role', 'alert');
+    const detail = error instanceof Error ? error.message : String(error);
+    message.textContent = `The page couldn't start: ${detail}`;
+    container.append(message);
+}
 
-const timer = new Timer();
-timer.connect(document);
-graphics.renderer.setAnimationLoop((timestamp) => {
-    timer.update(timestamp);
-    bench?.startFrame(timestamp, (x, y) => launcher.fire(x, y));
-    physics.step(bench ? bench.delta : timer.getDelta());
-    bench?.profiler.lap('physics');
-    const moved = world.sync();
-    fracture.update();
-    world.cull();
-    const removed = world.flush();
-    bench?.profiler.lap('logic');
-    // The bench renders every frame, so each run renders the same number of frames
-    graphics.render(bench !== undefined || moved || removed);
-    bench?.profiler.lap('render');
-    if (bench?.endFrame(world.objects.size, graphics.backendName, physics.engineName)) {
-        graphics.renderer.setAnimationLoop(null);
-    }
-});
+async function start(container: HTMLElement): Promise<void> {
+    // Rapier is a large download, so it loads while the renderer starts
+    const physicsReady = import('./physics.ts').then(({ Physics }) => Physics.create());
+    const graphics = await Graphics.create(container, graphicsOptionsFromUrl());
+    // Show the sky while the physics engine loads
+    graphics.render(false);
+    const physics = await physicsReady;
+    const world = new World(graphics.scene, physics);
+    const fracture = new Fracture(world, physics);
+    const launcher = new Launcher(world, physics, graphics.camera);
+    const loader = new LevelLoader(world, physics);
+    const levelNames = levels.map((level) => level.name);
+    const bench = Bench.fromUrl(levelNames);
+    createLevelMenu(container, levelNames, (index) => loader.load(levels[index]), bench?.level);
+    onCanvasClick(graphics.canvas, (x, y) => launcher.fire(x, y));
+    // Every object is Lambert, like the projectile, so one sample covers all debris
+    const sample = Fracture.sampleDebris(launcher.material);
+    await graphics.precompile(sample);
+    sample.geometry.dispose();
+
+    const timer = new Timer();
+    timer.connect(document);
+    graphics.renderer.setAnimationLoop((timestamp) => {
+        timer.update(timestamp);
+        bench?.startFrame(timestamp, (x, y) => launcher.fire(x, y));
+        physics.step(bench ? bench.delta : timer.getDelta());
+        bench?.profiler.lap('physics');
+        const moved = world.sync();
+        fracture.update();
+        world.cull();
+        const removed = world.flush();
+        bench?.profiler.lap('logic');
+        // The bench renders every frame, so each run renders the same number of frames
+        graphics.render(bench !== undefined || moved || removed);
+        bench?.profiler.lap('render');
+        if (bench?.endFrame(world.objects.size, graphics.backendName, physics.engineName)) {
+            graphics.renderer.setAnimationLoop(null);
+        }
+    });
+}
+
+const container = document.getElementById('container')!;
+start(container).catch((error: unknown) => showStartError(container, error));

@@ -4,6 +4,9 @@
   "private": true,
   "description": "A three-dimensional world with objects, lighting and physics",
   "type": "module",
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

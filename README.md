@@ -9,7 +9,7 @@ left; pressing the current level's button restarts it.
 
 ## Running locally
 
-Install [Node.js](https://nodejs.org/) 22.13 or later, then:
+Install [Node.js](https://nodejs.org/) 22 (22.13 or later), 24, or 26 or later, then:
 
 ```
 npm install
@@ -33,12 +33,18 @@ and open the URL it prints.
 The page renders with WebGPU, or with WebGL 2 in browsers without it. Add `?backend=webgl` to the
 URL to use WebGL 2 anyway.
 
-Add `?bench` to the URL (`?bench&backend=webgl` for WebGL 2) to run a benchmark: it fires a fixed,
+Add `?bench` to the URL to run a benchmark, for example
+[on the live site](https://ashbellett.github.io/3d-world/?bench), or
+[with WebGL 2](https://ashbellett.github.io/3d-world/?bench&backend=webgl). It fires a fixed,
 seeded series of shots at the Stack level, steps the physics by the same time every frame and
 renders every frame, then shows how long each stage of a frame took. The results are also logged to
-the console and stored as `window.benchResult`. Settings are under `bench` in `config.ts`. For
-frame times above the display's refresh rate, start Chrome with `--disable-gpu-vsync
---disable-frame-rate-limit`.
+the console and stored as `window.benchResult`. Settings are under `bench` in `config.ts`.
+
+For steady results, keep the tab in front and leave the camera alone while it runs, as the shots
+are aimed from it, and run it a few times. Frame times are limited by the display's refresh rate
+unless Chrome is started with `--disable-gpu-vsync --disable-frame-rate-limit`, for example with a
+separate profile: `open -na "Google Chrome" --args --user-data-dir=/tmp/bench --disable-gpu-vsync
+--disable-frame-rate-limit` on macOS.
 
 ## Deployment
 

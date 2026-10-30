@@ -1,5 +1,5 @@
 import type { Camera } from 'three/webgpu';
-import { MeshPhongMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three/webgpu';
+import { MeshLambertMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
 import type { Physics, Shape } from './physics.ts';
 import type { World } from './world.ts';
@@ -10,7 +10,7 @@ export class Launcher {
     readonly world: World;
     readonly camera: Camera;
     readonly geometry: SphereGeometry;
-    readonly material: MeshPhongMaterial;
+    readonly material: MeshLambertMaterial;
     readonly shape: Shape;
     readonly raycaster = new Raycaster();
     readonly pointer = new Vector2();
@@ -22,7 +22,9 @@ export class Launcher {
         // Shared by every projectile
         const { radius, colour } = config.projectile;
         this.geometry = new SphereGeometry(radius, 32);
-        this.material = new MeshPhongMaterial({ color: colour });
+        // Lambert, like the blocks, so it uses the same shaders and the first shot doesn't wait
+        // for new ones to compile
+        this.material = new MeshLambertMaterial({ color: colour });
         this.shape = physics.createSphereShape(radius);
     }
 
@@ -39,6 +41,11 @@ export class Launcher {
             config.projectile.mass,
         );
         projectile.userData.velocity.copy(direction).multiplyScalar(config.projectile.speed);
-        this.world.add(projectile, this.shape, { transient: true, sharedGeometry: true });
+        // Continuous, as it moves further in a step than a domino is thick
+        this.world.add(projectile, this.shape, {
+            transient: true,
+            sharedGeometry: true,
+            continuous: true,
+        });
     }
 }
