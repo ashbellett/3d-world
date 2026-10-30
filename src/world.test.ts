@@ -207,3 +207,43 @@ describe('flush', () => {
         expect(world.flush()).toBe(false);
     });
 });
+
+describe('when the batch is full', () => {
+    beforeEach(() => {
+        batch = new Batch(new MeshBasicMaterial(), { instances: 3, vertices: 1024 });
+        world = new World(batch, physics);
+    });
+
+    test('removes the object that has shrunk furthest to make room', () => {
+        const [a, b, c] = [0, 2, 4].map((y) => add(y, { transient: true }));
+        world.fading.set(a, 0.1);
+        world.fading.set(b, 0.3);
+        const d = add(6, { transient: true });
+        expect(world.has(b)).toBe(false);
+        for (const object of [a, c, d]) expect(world.has(object)).toBe(true);
+        expect(world.fading.has(b)).toBe(false);
+    });
+
+    test('removes the oldest projectile or debris if none is shrinking', () => {
+        const fixed = add(0);
+        const [older, newer] = [2, 4].map((y) => add(y, { transient: true }));
+        add(6, { transient: true });
+        expect(world.has(older)).toBe(false);
+        expect(world.has(fixed)).toBe(true);
+        expect(world.has(newer)).toBe(true);
+    });
+
+    test('throws if only level objects fill it', () => {
+        [0, 2, 4].forEach((y) => add(y));
+        expect(() => add(6)).toThrow(/config.batch.instances must be above 3/);
+    });
+
+    test('ignores a queued object it already removed', () => {
+        const [a] = [0, 2, 4].map((y) => add(y, { transient: true }));
+        world.remove(a);
+        add(6, { transient: true });
+        expect(world.has(a)).toBe(false);
+        expect(() => world.flush()).not.toThrow();
+        expect(world.objects.size).toBe(3);
+    });
+});

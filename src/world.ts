@@ -86,6 +86,7 @@ export class World {
             transient = false,
             continuous = false,
         } = spec;
+        if (this.batch.full) this.makeRoom();
         const id = this.nextId++;
         const body = this.physics.addBody(id, shape, {
             mass,
@@ -198,18 +199,40 @@ export class World {
         return this.fading.size > 0;
     }
 
-    // Removes queued objects, their bodies and instances, and any geometries they don't share.
-    // Returns whether anything was removed.
+    // Removes queued objects. Returns whether anything was removed.
     flush(): boolean {
         if (this.toRemove.size === 0) return false;
-        for (const object of this.toRemove) {
-            this.physics.removeBody(object.body);
-            this.batch.removeInstance(object.instance);
-            if (!object.sharedGeometry) this.batch.removeGeometry(object.geometryId);
-            this.objects.delete(object.id);
-            this.fading.delete(object);
-        }
-        this.toRemove.clear();
+        for (const object of this.toRemove) this.removeNow(object);
         return true;
+    }
+
+    // Removes the object, its body and instance, and its geometry if it doesn't share it. Does
+    // nothing if it's already been removed, as makeRoom may remove an object something else has
+    // queued.
+    removeNow(object: WorldObject): void {
+        this.toRemove.delete(object);
+        if (!this.objects.has(object.id)) return;
+        this.physics.removeBody(object.body);
+        this.batch.removeInstance(object.instance);
+        if (!object.sharedGeometry) this.batch.removeGeometry(object.geometryId);
+        this.objects.delete(object.id);
+        this.fading.delete(object);
+    }
+
+    // Removes an object at once, when the batch has no room for another: the one that has
+    // shrunk furthest, or if none is shrinking, the oldest projectile or piece of debris
+    makeRoom(): void {
+        let victim: WorldObject | undefined;
+        let furthest = -1;
+        for (const [object, time] of this.fading) {
+            if (time > furthest) [victim, furthest] = [object, time];
+        }
+        victim ??= [...this.objects.values()].find((object) => object.transient);
+        if (!victim) {
+            throw new Error(
+                `The batch is full of level objects: config.batch.instances must be above ${this.objects.size}`,
+            );
+        }
+        this.removeNow(victim);
     }
 }

@@ -63,6 +63,9 @@ The rules are `cullOrder`, and the limits are under `world` in `config.ts`. Reor
 rules to change the order; objects the rules leave tied go oldest first. Anything that falls off
 the edge of the ground is removed at once.
 
+There can never be more than `batch.instances` objects (512), counting those shrinking away. If
+there would be, the one that has shrunk furthest goes at once.
+
 ## Deployment
 
 Pushes to `main` are built and deployed to GitHub Pages by `.github/workflows/deploy.yml`.

@@ -70,9 +70,11 @@ export const config = {
             lineWidth: 2,
         },
     },
-    // Room the batch that draws the objects starts with. It grows if it needs more.
+    // Room in the batch that draws the objects. Vertices grow if they need to. Instances don't,
+    // so they're the most objects there can be, including those shrinking away; beyond it, the
+    // ones that have shrunk furthest go at once. It must be well above world.maxObjects.
     batch: {
-        instances: 256,
+        instances: 512,
         vertices: 65536,
     },
     world: {
