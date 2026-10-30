@@ -24,6 +24,7 @@ and open the URL it prints.
 | `npm run build`     | Type-checks the code, then builds the site into `dist/` |
 | `npm run preview`   | Serves the built site                                   |
 | `npm run typecheck` | Type-checks the code with TypeScript                    |
+| `npm test`          | Runs the tests with Vitest                              |
 | `npm run lint`      | Checks the code with ESLint and Prettier                |
 | `npm run format`    | Formats the code with Prettier                          |
 
@@ -48,8 +49,9 @@ deployment → Source).
 ## Code
 
 The code is TypeScript. Vite strips the types when serving and building, and `tsc` checks them
-(`npm run typecheck`, and as part of `npm run build`). The page loads `src/main.ts`, which connects
-these modules:
+(`npm run typecheck`, and as part of `npm run build`). Tests sit beside the modules they test, in
+`*.test.ts` files, and Vitest runs them in Node. The page loads `src/main.ts`, which connects these
+modules:
 
 | Module        | Does                                                                       |
 | ------------- | -------------------------------------------------------------------------- |
