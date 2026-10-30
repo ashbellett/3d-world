@@ -1,98 +1,111 @@
-import type { Vector3 } from 'three/webgpu';
-import { Quaternion } from 'three/webgpu';
-import { ConvexObjectBreaker } from 'three/addons/misc/ConvexObjectBreaker.js';
+import { Quaternion, Vector3 } from 'three/webgpu';
+import type { BreakJob, Breaker, Piece } from './breaker.ts';
+import { geometryOf } from './breaker.ts';
 import { config } from './config.ts';
 import type { ImpactHandler, Physics, Shape } from './physics.ts';
-import type { BodyMesh, World, WorldObject } from './world.ts';
+import type { World, WorldObject } from './world.ts';
 
-// Where an object was hit, in its local space
-interface Impact {
-    point: Vector3;
-    normal: Vector3;
-}
-
+const position = new Vector3();
+const quaternion = new Quaternion();
 const inverse = new Quaternion();
 
-// Breaks breakable objects that are hit harder than their breakImpulse into debris. At most
-// config.fracture.maxPerFrame objects break each frame, so a shot that hits several boxes
-// doesn't stall a single frame; the rest wait in a queue.
+// Breaks breakable objects that are hit harder than their breakImpulse into debris. The breaker
+// cuts them up, in a worker in the page, while they carry on moving; the pieces then replace
+// them where they've got to. At most config.fracture.maxPerFrame objects are replaced each
+// frame, so a shot that breaks several boxes doesn't stall a single frame; the rest wait.
 export class Fracture {
     readonly world: World;
     readonly physics: Physics;
-    readonly breaker = new ConvexObjectBreaker();
-    // Mesh -> impact point and normal in the mesh's local space, which stay valid while the
-    // mesh moves
-    readonly queue = new Map<WorldObject, Impact>();
+    readonly breaker: Breaker;
+    // Objects being cut up, so they aren't cut up twice
+    readonly breaking = new Set<WorldObject>();
+    // Objects that have been cut up, and their pieces, oldest first
+    readonly broken: { object: WorldObject; pieces: Piece[] }[] = [];
     // Bound once, as it's called for every impact each frame
     readonly onImpact: ImpactHandler = (id0, id1, impulse, point, normal) => {
         this.enqueue(id0, impulse, point, normal);
         this.enqueue(id1, impulse, point, normal);
     };
 
-    constructor(world: World, physics: Physics) {
+    constructor(world: World, physics: Physics, breaker: Breaker) {
         this.world = world;
         this.physics = physics;
+        this.breaker = breaker;
     }
 
-    canBreak(mesh: WorldObject | undefined): mesh is WorldObject {
-        return mesh !== undefined && mesh.userData.breakable && !this.queue.has(mesh);
+    canBreak(object: WorldObject | undefined): object is WorldObject {
+        return (
+            object !== undefined &&
+            object.breakImpulse < Infinity &&
+            !this.breaking.has(object) &&
+            !this.world.isFading(object)
+        );
     }
 
+    // Sends the object to be cut up, if the impact breaks it
     enqueue(id: number, impulse: number, point: Vector3, normal: Vector3): void {
-        const mesh = this.world.get(id);
-        if (!this.canBreak(mesh) || impulse <= mesh.userData.breakImpulse) return;
-        inverse.copy(mesh.quaternion).invert();
-        this.queue.set(mesh, {
-            point: point.clone().sub(mesh.position).applyQuaternion(inverse),
-            normal: normal.clone().applyQuaternion(inverse),
-        });
+        const object = this.world.get(id);
+        if (!this.canBreak(object) || impulse <= object.breakImpulse) return;
+        // In the object's space, where the body was hit, rather than where it's drawn, between
+        // steps
+        this.physics.readPose(object.body, position, inverse);
+        inverse.invert();
+        const job: BreakJob = {
+            positions: Float32Array.from(object.geometry.getAttribute('position').array),
+            normals: Float32Array.from(object.geometry.getAttribute('normal').array),
+            mass: object.mass,
+            point: point.clone().sub(position).applyQuaternion(inverse).toArray(),
+            normal: normal.clone().applyQuaternion(inverse).toArray(),
+            seed: Math.floor(Math.random() * 2 ** 32),
+        };
+        this.breaking.add(object);
+        void this.breaker(job).then((pieces) => this.broken.push({ object, pieces }));
     }
 
     update(): void {
         this.physics.forEachImpact(this.onImpact);
-        let remaining = config.fracture.maxPerFrame;
-        for (const [mesh, impact] of this.queue) {
-            if (remaining === 0) break;
-            this.queue.delete(mesh);
-            // It may have been removed while it waited
-            if (!this.world.has(mesh)) continue;
-            this.shatter(mesh, impact);
-            remaining--;
+        for (let i = 0; i < config.fracture.maxPerFrame && this.broken.length > 0; i++) {
+            const { object, pieces } = this.broken.shift()!;
+            this.breaking.delete(object);
+            // It may have been removed while it was being cut up
+            if (this.world.has(object)) this.shatter(object, pieces);
         }
     }
 
-    shatter(mesh: WorldObject, { point, normal }: Impact): void {
-        const data = mesh.userData;
-        point.applyQuaternion(mesh.quaternion).add(mesh.position);
-        normal.applyQuaternion(mesh.quaternion);
-        // The debris takes the object's velocity
-        this.physics.readVelocity(data.body, data.velocity, data.angularVelocity);
-        // The breaker uses the local matrix, which is otherwise only updated when rendering
-        mesh.updateMatrix();
-        let debris: BodyMesh[];
+    // Replaces the object with its pieces, where its body is now and moving as it is
+    shatter(object: WorldObject, pieces: Piece[]): void {
+        if (pieces.length === 0) return;
         let shapes: Shape[];
         try {
-            debris = this.breaker.subdivideByImpact(
-                mesh,
-                point,
-                normal,
-                config.fracture.radialIterations,
-                config.fracture.randomIterations,
-            ) as BodyMesh[];
-            shapes = debris.map((fragment) =>
-                this.physics.createHullShape(fragment.geometry.attributes.position.array),
-            );
+            shapes = pieces.map((piece) => this.physics.createHullShape(piece.positions));
         } catch {
-            // ConvexHull and Rapier throw on pieces with almost no volume, which a cut through an
-            // edge or corner can leave. The object stays whole rather than the error stopping
-            // the loop.
+            // Rapier throws on pieces too flat to have a hull. The object stays whole rather
+            // than the error stopping the loop.
             return;
         }
-        if (debris.length === 0) return;
-        debris.forEach((fragment, i) => {
-            fragment.userData.breakImpulse = data.breakImpulse;
-            this.world.add(fragment, shapes[i], { transient: true });
+        this.physics.readPose(object.body, position, quaternion);
+        const velocity = new Vector3();
+        const angularVelocity = new Vector3();
+        this.physics.readVelocity(object.body, velocity, angularVelocity);
+        pieces.forEach((piece, i) => {
+            this.world.add(
+                {
+                    geometry: geometryOf(piece),
+                    colour: object.colour,
+                    mass: piece.mass,
+                    position: new Vector3(...piece.position)
+                        .applyQuaternion(quaternion)
+                        .add(position),
+                    quaternion,
+                    velocity,
+                    angularVelocity,
+                    // Pieces too small to break again don't
+                    breakImpulse: piece.breakable ? object.breakImpulse : undefined,
+                    transient: true,
+                },
+                shapes[i],
+            );
         });
-        this.world.remove(mesh);
+        this.world.remove(object);
     }
 }

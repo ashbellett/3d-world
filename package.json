@@ -4,6 +4,9 @@
   "private": true,
   "description": "A three-dimensional world with objects, lighting and physics",
   "type": "module",
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -14,7 +17,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@dimforge/rapier3d-compat": "^0.21.0",
+    "@dimforge/rapier3d-simd": "^0.21.0",
     "three": "^0.186.1"
   },
   "devDependencies": {
@@ -26,6 +29,7 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vite": "^8.3.3",
+    "vite-plugin-wasm": "^3.6.0",
     "vitest": "^5.0.5"
   }
 }

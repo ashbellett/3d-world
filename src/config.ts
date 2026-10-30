@@ -1,8 +1,13 @@
+import type { CullRule } from './cull.ts';
+
 // Settings. Positions and sizes are [x, y, z], with y up from the ground's surface. The levels
 // are in levels.ts.
 export const config = {
     canvas: {
         maxPixelRatio: 2,
+        // Edges are smoothed (multisampled) below this pixel ratio. At or above it, the pixels
+        // are small enough to go without, which saves the GPU a lot of work.
+        antialiasBelowPixelRatio: 2,
     },
     camera: {
         fov: 60,
@@ -35,12 +40,17 @@ export const config = {
         // at a quarter of its speed
         friction: 0.5,
         restitution: 0.5,
+        // Hulls flatter than this, in metres, are refused, as they have no inertia to rotate with
+        minHullThickness: 0.001,
     },
     fracture: {
-        // Each break takes a millisecond or two, so any more wait for later frames
+        // Objects replaced by their pieces each frame. Each adds a few bodies, so any more wait
+        // for later frames.
         maxPerFrame: 2,
         radialIterations: 1,
         randomIterations: 2,
+        // Pieces' points closer together than this, in metres, are merged, as breaker.ts says
+        mergeDistance: 0.001,
     },
     projectile: {
         mass: 10,
@@ -60,10 +70,20 @@ export const config = {
             lineWidth: 2,
         },
     },
+    // Room the batch that draws the objects starts with. It grows if it needs more.
+    batch: {
+        instances: 256,
+        vertices: 65536,
+    },
     world: {
-        // Oldest projectiles and debris are removed beyond this many objects
-        maxObjects: 200,
-        // Objects that fall below this height are removed
+        // Projectiles and debris are removed beyond this many objects, the least noticeable
+        // first: in the order cullOrder's rules put them, as cull.ts describes. Reorder or
+        // leave out rules to change it; whatever they leave tied goes oldest first.
+        maxObjects: 256,
+        cullOrder: ['offScreen', 'resting', 'small', 'old'] as CullRule[],
+        // Seconds a removed projectile or piece takes to shrink away, still colliding
+        fadeTime: 0.5,
+        // Objects that fall below this height are removed at once
         minY: -20,
     },
     input: {

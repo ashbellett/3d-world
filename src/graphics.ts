@@ -35,8 +35,13 @@ export class Graphics {
     }
 
     private constructor(container: HTMLElement, { forceWebGL = false }: GraphicsOptions) {
-        this.renderer = new WebGPURenderer({ antialias: true, forceWebGL });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.canvas.maxPixelRatio));
+        const { maxPixelRatio, antialiasBelowPixelRatio } = config.canvas;
+        const pixelRatio = Math.min(window.devicePixelRatio, maxPixelRatio);
+        this.renderer = new WebGPURenderer({
+            antialias: pixelRatio < antialiasBelowPixelRatio,
+            forceWebGL,
+        });
+        this.renderer.setPixelRatio(pixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.canvas = this.renderer.domElement;
         container.appendChild(this.canvas);
