@@ -19,7 +19,7 @@ declare global {
 }
 
 // Mulberry32: a small seeded generator of numbers in [0, 1)
-function seededRandom(seed: number): () => number {
+export function seededRandom(seed: number): () => number {
     let state = seed >>> 0;
     return () => {
         state = (state + 0x6d2b79f5) >>> 0;
