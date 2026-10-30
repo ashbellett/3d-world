@@ -27,6 +27,18 @@ and open the URL it prints.
 | `npm run lint`      | Checks the code with ESLint and Prettier                |
 | `npm run format`    | Formats the code with Prettier                          |
 
+## Rendering and benchmarking
+
+The page renders with WebGPU, or with WebGL 2 in browsers without it. Add `?backend=webgl` to the
+URL to use WebGL 2 anyway.
+
+Add `?bench` to the URL (`?bench&backend=webgl` for WebGL 2) to run a benchmark: it fires a fixed,
+seeded series of shots at the Stack level, steps the physics by the same time every frame and
+renders every frame, then shows how long each stage of a frame took. The results are also logged to
+the console and stored as `window.benchResult`. Settings are under `bench` in `config.ts`. For
+frame times above the display's refresh rate, start Chrome with `--disable-gpu-vsync
+--disable-frame-rate-limit`.
+
 ## Deployment
 
 Pushes to `main` are built and deployed to GitHub Pages by `.github/workflows/deploy.yml`.
@@ -44,20 +56,23 @@ these modules:
 | `config.ts`   | Settings                                                                   |
 | `levels.ts`   | The levels: each object's shape, mass, colour, break strength and position |
 | `graphics.ts` | Renderer, camera, controls and lights; renders only when something changed |
-| `physics.ts`  | The Ammo.js physics world, and the only module that uses Ammo              |
+| `physics.ts`  | The Rapier physics world, and the only module that uses Rapier             |
 | `world.ts`    | Objects in the scene, each a mesh with a physics body                      |
 | `fracture.ts` | Breaks objects that are hit harder than their break strength               |
 | `launcher.ts` | Fires projectiles from the camera                                          |
 | `input.ts`    | Tells a click or tap from a camera drag                                    |
 | `level.ts`    | Builds the ground, with its grid, and a level's objects                    |
 | `menu.ts`     | The level buttons                                                          |
-| `ammo.d.ts`   | Types for the parts of Ammo.js the code uses, as Ammo.js has none          |
+| `bench.ts`    | The benchmark that `?bench` runs                                           |
+| `profiler.ts` | Times each stage of a frame and summarises the times                       |
 
 ## Dependencies
 
-- [Three.js](https://github.com/mrdoob/three.js), installed from npm (version in `package.json`)
-- [Ammo.js](https://github.com/kripken/ammo.js) WebAssembly build (commit `79190a1`, the same build
-  Three.js uses), in `public/lib/ammo`
+Installed from npm, with versions in `package.json`:
+
+- [Three.js](https://github.com/mrdoob/three.js), using its `WebGPURenderer`
+- [Rapier](https://rapier.rs), a physics engine written in Rust and compiled to WebAssembly. The
+  `-compat` package inlines the WebAssembly in its JavaScript, so it needs no bundler plugin.
 
 ## Credit
 

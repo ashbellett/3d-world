@@ -8,17 +8,6 @@
         />
         <title>3D World</title>
         <link rel="stylesheet" href="./src/index.css" />
-        <!-- Fetch the physics engine while the scripts load, rather than after -->
-        <link
-            rel="preload"
-            href="/lib/ammo/ammo.wasm.wasm"
-            as="fetch"
-            type="application/wasm"
-            crossorigin
-        />
-        <!-- A classic script, as its loader finds the .wasm file next to itself. It must come
-             before main.ts, which uses the Ammo global it defines. -->
-        <script src="/lib/ammo/ammo.wasm.js" defer></script>
         <script type="module" src="./src/main.ts"></script>
     </head>
     <body>

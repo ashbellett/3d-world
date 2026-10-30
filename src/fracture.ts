@@ -1,8 +1,8 @@
-import type { Vector3 } from 'three';
-import { Quaternion } from 'three';
+import type { Vector3 } from 'three/webgpu';
+import { Quaternion } from 'three/webgpu';
 import { ConvexObjectBreaker } from 'three/addons/misc/ConvexObjectBreaker.js';
 import { config } from './config.ts';
-import type { ContactFilter, ImpactHandler, Physics } from './physics.ts';
+import type { ImpactHandler, Physics, Shape } from './physics.ts';
 import type { BodyMesh, World, WorldObject } from './world.ts';
 
 // Where an object was hit, in its local space
@@ -23,9 +23,7 @@ export class Fracture {
     // Mesh -> impact point and normal in the mesh's local space, which stay valid while the
     // mesh moves
     readonly queue = new Map<WorldObject, Impact>();
-    // Bound once, as they're called for every contact each frame
-    readonly accept: ContactFilter = (id0, id1) =>
-        this.canBreak(this.world.get(id0)) || this.canBreak(this.world.get(id1));
+    // Bound once, as it's called for every impact each frame
     readonly onImpact: ImpactHandler = (id0, id1, impulse, point, normal) => {
         this.enqueue(id0, impulse, point, normal);
         this.enqueue(id1, impulse, point, normal);
@@ -51,7 +49,7 @@ export class Fracture {
     }
 
     update(): void {
-        this.physics.forEachImpact(this.accept, this.onImpact);
+        this.physics.forEachImpact(this.onImpact);
         let remaining = config.fracture.maxPerFrame;
         for (const [mesh, impact] of this.queue) {
             if (remaining === 0) break;
@@ -71,7 +69,8 @@ export class Fracture {
         this.physics.readVelocity(data.body, data.velocity, data.angularVelocity);
         // The breaker uses the local matrix, which is otherwise only updated when rendering
         mesh.updateMatrix();
-        let debris;
+        let debris: BodyMesh[];
+        let shapes: Shape[];
         try {
             debris = this.breaker.subdivideByImpact(
                 mesh,
@@ -79,18 +78,21 @@ export class Fracture {
                 normal,
                 config.fracture.radialIterations,
                 config.fracture.randomIterations,
+            ) as BodyMesh[];
+            shapes = debris.map((fragment) =>
+                this.physics.createHullShape(fragment.geometry.attributes.position.array),
             );
         } catch {
-            // ConvexHull throws on pieces with almost no volume, which a cut through an edge or
-            // corner can leave. The object stays whole rather than the error stopping the loop.
+            // ConvexHull and Rapier throw on pieces with almost no volume, which a cut through an
+            // edge or corner can leave. The object stays whole rather than the error stopping
+            // the loop.
             return;
         }
         if (debris.length === 0) return;
-        for (const fragment of debris as BodyMesh[]) {
+        debris.forEach((fragment, i) => {
             fragment.userData.breakImpulse = data.breakImpulse;
-            const shape = this.physics.createHullShape(fragment.geometry.attributes.position.array);
-            this.world.add(fragment, shape, { transient: true });
-        }
+            this.world.add(fragment, shapes[i], { transient: true });
+        });
         this.world.remove(mesh);
     }
 }

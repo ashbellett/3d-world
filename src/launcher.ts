@@ -1,7 +1,7 @@
-import type { Camera } from 'three';
-import { MeshPhongMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three';
+import type { Camera } from 'three/webgpu';
+import { MeshPhongMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
-import type { Physics } from './physics.ts';
+import type { Physics, Shape } from './physics.ts';
 import type { World } from './world.ts';
 import { createMesh } from './world.ts';
 
@@ -11,7 +11,7 @@ export class Launcher {
     readonly camera: Camera;
     readonly geometry: SphereGeometry;
     readonly material: MeshPhongMaterial;
-    readonly shape: Ammo.btSphereShape;
+    readonly shape: Shape;
     readonly raycaster = new Raycaster();
     readonly pointer = new Vector2();
     readonly position = new Vector3();
@@ -39,10 +39,6 @@ export class Launcher {
             config.projectile.mass,
         );
         projectile.userData.velocity.copy(direction).multiplyScalar(config.projectile.speed);
-        this.world.add(projectile, this.shape, {
-            transient: true,
-            sharedGeometry: true,
-            sharedShape: true,
-        });
+        this.world.add(projectile, this.shape, { transient: true, sharedGeometry: true });
     }
 }

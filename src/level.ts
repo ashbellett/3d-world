@@ -1,4 +1,4 @@
-import type { BufferGeometry, Material } from 'three';
+import type { BufferGeometry, Material } from 'three/webgpu';
 import {
     BoxGeometry,
     CanvasTexture,
@@ -7,11 +7,11 @@ import {
     RepeatWrapping,
     SRGBColorSpace,
     Vector3,
-} from 'three';
+} from 'three/webgpu';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { config } from './config.ts';
 import type { BlockSpec, LevelSpec } from './levels.ts';
-import type { Physics } from './physics.ts';
+import type { Physics, Shape } from './physics.ts';
 import type { World } from './world.ts';
 import { createMesh } from './world.ts';
 
@@ -49,7 +49,6 @@ export class LevelLoader {
     // Shared by the current level's objects
     geometries: BufferGeometry[] = [];
     materials: Material[] = [];
-    shapes: Ammo.btCollisionShape[] = [];
 
     constructor(world: World, physics: Physics) {
         this.world = world;
@@ -73,10 +72,8 @@ export class LevelLoader {
     free(): void {
         for (const geometry of this.geometries) geometry.dispose();
         for (const material of this.materials) material.dispose();
-        for (const shape of this.shapes) this.physics.destroyShape(shape);
         this.geometries = [];
         this.materials = [];
-        this.shapes = [];
     }
 
     addGround(): void {
@@ -92,7 +89,7 @@ export class LevelLoader {
 
     addBlocks({ shape, mass, colour, breakImpulse, positions }: BlockSpec): void {
         let geometry: BufferGeometry;
-        let collisionShape: Ammo.btCollisionShape;
+        let collisionShape: Shape;
         if ('box' in shape) {
             const [width, height, depth] = shape.box;
             geometry = new BoxGeometry(width, height, depth);
@@ -104,7 +101,6 @@ export class LevelLoader {
         const material = new MeshLambertMaterial({ color: colour });
         this.geometries.push(geometry);
         this.materials.push(material);
-        this.shapes.push(collisionShape);
 
         const position = new Vector3();
         for (const point of positions) {
@@ -115,7 +111,7 @@ export class LevelLoader {
                 mass,
                 breakImpulse,
             );
-            this.world.add(mesh, collisionShape, { sharedGeometry: true, sharedShape: true });
+            this.world.add(mesh, collisionShape, { sharedGeometry: true });
         }
     }
 }

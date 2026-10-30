@@ -28,11 +28,12 @@ export const config = {
     },
     physics: {
         gravity: 10,
+        // Longest step in seconds, and most steps a frame
+        timestep: 1 / 60,
         maxSubSteps: 10,
-        margin: 0.02,
+        // The two bodies' frictions and restitutions are multiplied, so a contact bounces back
+        // at a quarter of its speed
         friction: 0.5,
-        // Bullet multiplies the two bodies' restitutions, so a contact bounces back at a quarter
-        // of its speed
         restitution: 0.5,
     },
     fracture: {
@@ -68,5 +69,20 @@ export const config = {
     input: {
         // Pointer movement (px) beyond which a press counts as a camera drag, not a shot
         maxClickDistance: 5,
+    },
+    // The repeatable run that ?bench in the URL starts, described in bench.ts
+    bench: {
+        level: 'Stack',
+        // Seconds the physics steps each frame
+        delta: 1 / 60,
+        // Frames before timing starts, while shaders compile, then frames timed
+        warmupFrames: 60,
+        frames: 600,
+        // A shot every shotInterval frames, shots in all, at random points up to spread from the
+        // centre of the screen, in normalised device coordinates
+        shotInterval: 10,
+        shots: 40,
+        spread: 0.25,
+        seed: 1,
     },
 };
