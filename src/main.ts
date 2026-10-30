@@ -1,6 +1,7 @@
 import { MeshLambertMaterial, Timer } from 'three/webgpu';
 import { Batch } from './batch.ts';
 import { Bench } from './bench.ts';
+import { breakInWorker } from './breaker.ts';
 import { config } from './config.ts';
 import { Fracture } from './fracture.ts';
 import type { GraphicsOptions } from './graphics.ts';
@@ -43,7 +44,8 @@ async function start(container: HTMLElement): Promise<void> {
     graphics.scene.add(batch.mesh);
     addGround(graphics.scene, physics);
     const world = new World(batch, physics);
-    const fracture = new Fracture(world, physics);
+    const worker = new Worker(new URL('./fracture.worker.ts', import.meta.url), { type: 'module' });
+    const fracture = new Fracture(world, physics, breakInWorker(worker));
     const launcher = new Launcher(world, physics, graphics.camera);
     const loader = new LevelLoader(world, physics);
     const levelNames = levels.map((level) => level.name);
