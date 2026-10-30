@@ -215,6 +215,11 @@ export class Physics {
         body.rotation(quaternion);
     }
 
+    // Whether the body has come to rest, so the physics has stopped moving it
+    isResting({ body }: BodyHandle): boolean {
+        return body.isSleeping();
+    }
+
     readVelocity({ body }: BodyHandle, velocity: Vector3, angularVelocity: Vector3): void {
         body.linvel(velocity);
         body.angvel(angularVelocity);

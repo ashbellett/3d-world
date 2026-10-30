@@ -1,3 +1,5 @@
+import type { CullRule } from './cull.ts';
+
 // Settings. Positions and sizes are [x, y, z], with y up from the ground's surface. The levels
 // are in levels.ts.
 export const config = {
@@ -74,9 +76,14 @@ export const config = {
         vertices: 65536,
     },
     world: {
-        // Oldest projectiles and debris are removed beyond this many objects
-        maxObjects: 200,
-        // Objects that fall below this height are removed
+        // Projectiles and debris are removed beyond this many objects, the least noticeable
+        // first: in the order cullOrder's rules put them, as cull.ts describes. Reorder or
+        // leave out rules to change it; whatever they leave tied goes oldest first.
+        maxObjects: 400,
+        cullOrder: ['offScreen', 'resting', 'small', 'old'] as CullRule[],
+        // Seconds a removed projectile or piece takes to shrink away, still colliding
+        fadeTime: 0.5,
+        // Objects that fall below this height are removed at once
         minY: -20,
     },
     input: {

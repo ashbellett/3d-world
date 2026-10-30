@@ -7,7 +7,7 @@ export interface BatchCapacity {
 }
 
 const matrix = new Matrix4();
-const unitScale = new Vector3(1, 1, 1);
+const scale = new Vector3();
 
 // Draws many objects as one BatchedMesh, so they take one draw call rather than one each. Each
 // object is an instance of a geometry, with its own colour and transform. The batch grows when
@@ -68,8 +68,12 @@ export class Batch {
         return instance;
     }
 
-    setTransform(instance: number, position: Vector3, quaternion: Quaternion): void {
-        this.mesh.setMatrixAt(instance, matrix.compose(position, quaternion, unitScale));
+    // Takes a scale, for shrinking an instance away
+    setTransform(instance: number, position: Vector3, quaternion: Quaternion, size = 1): void {
+        this.mesh.setMatrixAt(
+            instance,
+            matrix.compose(position, quaternion, scale.setScalar(size)),
+        );
     }
 
     removeInstance(instance: number): void {

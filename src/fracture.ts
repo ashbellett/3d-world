@@ -34,7 +34,12 @@ export class Fracture {
     }
 
     canBreak(object: WorldObject | undefined): object is WorldObject {
-        return object !== undefined && object.breakImpulse < Infinity && !this.breaking.has(object);
+        return (
+            object !== undefined &&
+            object.breakImpulse < Infinity &&
+            !this.breaking.has(object) &&
+            !this.world.isFading(object)
+        );
     }
 
     // Sends the object to be cut up, if the impact breaks it

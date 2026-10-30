@@ -1,7 +1,9 @@
-import type { BufferGeometry, Color } from 'three/webgpu';
-import { Quaternion, Vector3 } from 'three/webgpu';
+import type { BufferGeometry, Camera, Color } from 'three/webgpu';
+import { Frustum, Matrix4, Quaternion, Sphere, Vector3 } from 'three/webgpu';
 import type { Batch } from './batch.ts';
 import { config } from './config.ts';
+import type { CullCandidate } from './cull.ts';
+import { cullOrder } from './cull.ts';
 import type { BodyHandle, Physics, Shape } from './physics.ts';
 
 // What World.add makes an object from
@@ -20,7 +22,7 @@ export interface ObjectSpec {
     angularVelocity?: Vector3;
     // Contact impulse above which it breaks. Without one, it doesn't.
     breakImpulse?: number;
-    // A projectile or debris, removed oldest first beyond config.world.maxObjects
+    // A projectile or debris, removed beyond config.world.maxObjects, as World.cull describes
     transient?: boolean;
     // Small and fast, so collides along its path, as Physics describes
     continuous?: boolean;
@@ -44,6 +46,17 @@ export interface WorldObject {
     readonly quaternion: Quaternion;
 }
 
+const frustum = new Frustum();
+const viewProjection = new Matrix4();
+const sphere = new Sphere();
+
+// The radius of the sphere around the object's origin that holds its geometry
+function radiusOf({ geometry }: WorldObject): number {
+    if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+    const { center, radius } = geometry.boundingSphere!;
+    return center.length() + radius;
+}
+
 // The objects in the world, each a physics body drawn as an instance in the batch
 export class World {
     readonly batch: Batch;
@@ -52,6 +65,8 @@ export class World {
     readonly objects = new Map<number, WorldObject>();
     nextId = 0;
     readonly toRemove = new Set<WorldObject>();
+    // Objects shrinking away -> seconds they've been shrinking
+    readonly fading = new Map<WorldObject, number>();
 
     constructor(batch: Batch, physics: Physics) {
         this.batch = batch;
@@ -111,6 +126,10 @@ export class World {
         return this.objects.has(object.id);
     }
 
+    isFading(object: WorldObject): boolean {
+        return this.fading.has(object);
+    }
+
     // Queues the object for removal at the end of the frame
     remove(object: WorldObject): void {
         this.toRemove.add(object);
@@ -136,15 +155,47 @@ export class World {
         this.flush();
     }
 
-    // Queues the oldest projectiles and debris for removal beyond the object limit
-    cull(): void {
-        let excess = this.objects.size - this.toRemove.size - config.world.maxObjects;
+    // Starts projectiles and debris shrinking away beyond config.world.maxObjects, not counting
+    // those already going, the least noticeable from the camera first, by config.world.cullOrder
+    cull(camera: Camera): void {
+        const { maxObjects, cullOrder: rules } = config.world;
+        const excess = this.objects.size - this.toRemove.size - this.fading.size - maxObjects;
+        if (excess <= 0) return;
+        frustum.setFromProjectionMatrix(
+            viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse),
+        );
+        const candidates: (CullCandidate & { object: WorldObject })[] = [];
         for (const object of this.objects.values()) {
-            if (excess <= 0) break;
-            if (!object.transient || this.toRemove.has(object)) continue;
-            this.toRemove.add(object);
-            excess--;
+            if (!object.transient || this.toRemove.has(object) || this.fading.has(object)) continue;
+            const radius = radiusOf(object);
+            const distance = object.position.distanceTo(camera.position);
+            candidates.push({
+                object,
+                id: object.id,
+                offScreen: !frustum.intersectsSphere(sphere.set(object.position, radius)),
+                resting: this.physics.isResting(object.body),
+                screenSize: radius / Math.max(distance, 1e-6),
+            });
         }
+        for (const { object } of cullOrder(candidates, rules).slice(0, excess)) {
+            this.fading.set(object, 0);
+        }
+    }
+
+    // Shrinks fading objects over config.world.fadeTime, and queues those that have gone for
+    // removal. Returns whether any are fading.
+    fade(delta: number): boolean {
+        for (const [object, time] of this.fading) {
+            const elapsed = time + delta;
+            const size = 1 - elapsed / config.world.fadeTime;
+            if (size <= 0) {
+                this.toRemove.add(object);
+                continue;
+            }
+            this.fading.set(object, elapsed);
+            this.batch.setTransform(object.instance, object.position, object.quaternion, size);
+        }
+        return this.fading.size > 0;
     }
 
     // Removes queued objects, their bodies and instances, and any geometries they don't share.
@@ -156,6 +207,7 @@ export class World {
             this.batch.removeInstance(object.instance);
             if (!object.sharedGeometry) this.batch.removeGeometry(object.geometryId);
             this.objects.delete(object.id);
+            this.fading.delete(object);
         }
         this.toRemove.clear();
         return true;

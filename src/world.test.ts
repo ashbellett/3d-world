@@ -1,5 +1,13 @@
-import { beforeEach, describe, expect, test } from 'vitest';
-import { BoxGeometry, Color, MeshBasicMaterial, Vector3 } from 'three/webgpu';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import {
+    BoxGeometry,
+    Color,
+    Matrix4,
+    MeshBasicMaterial,
+    PerspectiveCamera,
+    Quaternion,
+    Vector3,
+} from 'three/webgpu';
 import { Batch } from './batch.ts';
 import { config } from './config.ts';
 import { Physics } from './physics.ts';
@@ -84,18 +92,97 @@ test('sync queues objects that fell off the world', () => {
     expect(world.has(object)).toBe(false);
 });
 
-test('cull removes the oldest transient objects beyond the limit', () => {
-    const fixed = add(0);
-    // One over the limit, counting the fixed object
-    const transient = Array.from({ length: config.world.maxObjects }, (_, i) =>
-        add(i * 2, { transient: true }),
-    );
-    world.cull();
-    world.flush();
-    expect(world.objects.size).toBe(config.world.maxObjects);
-    expect(world.has(fixed)).toBe(true);
-    expect(world.has(transient[0])).toBe(false);
-    expect(world.has(transient[1])).toBe(true);
+describe('cull and fade', () => {
+    const { maxObjects } = config.world;
+    // Looking down -z from z = 10, so objects at the origin are on screen
+    const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.updateMatrixWorld();
+
+    beforeEach(() => {
+        config.world.maxObjects = 3;
+        // No gravity, so objects stay where they're put
+        physics.world.gravity = { x: 0, y: 0, z: 0 };
+    });
+    afterEach(() => {
+        config.world.maxObjects = maxObjects;
+    });
+
+    const addAt = (x: number, z: number, spec: Partial<ObjectSpec> = { transient: true }) =>
+        add(0, { position: new Vector3(x, 0, z), ...spec });
+
+    test('starts shrinking objects beyond the limit, then removes them', () => {
+        const objects = [0, 1, 2, 3].map((x) => addAt(x, 0));
+        world.cull(camera);
+        expect(world.flush()).toBe(false);
+        const fading = objects.filter((object) => world.isFading(object));
+        expect(fading).toHaveLength(1);
+        const [object] = fading;
+
+        expect(world.fade(config.world.fadeTime / 2)).toBe(true);
+        const scale = new Vector3();
+        batch.mesh
+            .getMatrixAt(object.instance, new Matrix4())
+            .decompose(new Vector3(), new Quaternion(), scale);
+        expect(scale.x).toBeCloseTo(0.5);
+        world.flush();
+        expect(world.has(object)).toBe(true);
+
+        world.fade(config.world.fadeTime / 2);
+        world.flush();
+        expect(world.has(object)).toBe(false);
+        expect(world.fade(0)).toBe(false);
+    });
+
+    test("doesn't count shrinking objects again", () => {
+        [0, 1, 2, 3].map((x) => addAt(x, 0));
+        world.cull(camera);
+        world.cull(camera);
+        expect(world.fading.size).toBe(1);
+    });
+
+    test("never removes objects that aren't projectiles or debris", () => {
+        const fixed = [0, 1, 2, 3].map((x) => addAt(x, 0, {}));
+        const transient = addAt(4, 0);
+        world.cull(camera);
+        expect(world.fading.size).toBe(1);
+        expect(world.isFading(transient)).toBe(true);
+        for (const object of fixed) expect(world.isFading(object)).toBe(false);
+    });
+
+    test('removes off-screen objects first', () => {
+        const objects = [addAt(0, 0), addAt(1, 0), addAt(2, 0)];
+        // Behind the camera
+        const behind = addAt(0, 20);
+        world.cull(camera);
+        expect(world.isFading(behind)).toBe(true);
+        for (const object of objects) expect(world.isFading(object)).toBe(false);
+    });
+
+    test('removes resting objects before moving ones', () => {
+        const objects = [addAt(0, 0), addAt(1, 0), addAt(2, 0)];
+        const resting = addAt(3, 0);
+        for (const object of objects) object.body.body.setLinvel({ x: 0, y: 0, z: 0.001 }, true);
+        resting.body.body.sleep();
+        world.cull(camera);
+        expect(world.isFading(resting)).toBe(true);
+    });
+
+    test('removes objects that look smaller first', () => {
+        const near = [addAt(0, 0), addAt(1, 0), addAt(2, 0)];
+        // The same size, but further from the camera
+        const far = addAt(0, -30);
+        world.cull(camera);
+        expect(world.isFading(far)).toBe(true);
+        for (const object of near) expect(world.isFading(object)).toBe(false);
+    });
+
+    test('clear removes shrinking objects too', () => {
+        [0, 1, 2, 3].map((x) => addAt(x, 0));
+        world.cull(camera);
+        world.clear();
+        expect(world.fading.size).toBe(0);
+    });
 });
 
 describe('flush', () => {

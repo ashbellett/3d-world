@@ -58,15 +58,17 @@ async function start(container: HTMLElement): Promise<void> {
     graphics.renderer.setAnimationLoop((timestamp) => {
         timer.update(timestamp);
         bench?.startFrame(timestamp, (x, y) => launcher.fire(x, y));
-        physics.step(bench ? bench.delta : timer.getDelta());
+        const delta = bench ? bench.delta : timer.getDelta();
+        physics.step(delta);
         bench?.profiler.lap('physics');
         const moved = world.sync();
         fracture.update();
-        world.cull();
+        world.cull(graphics.camera);
+        const fading = world.fade(delta);
         const removed = world.flush();
         bench?.profiler.lap('logic');
         // The bench renders every frame, so each run renders the same number of frames
-        graphics.render(bench !== undefined || moved || removed);
+        graphics.render(bench !== undefined || moved || fading || removed);
         bench?.profiler.lap('render');
         if (
             bench?.endFrame(

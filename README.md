@@ -47,6 +47,22 @@ unless Chrome is started with `--disable-gpu-vsync --disable-frame-rate-limit`, 
 separate profile: `open -na "Google Chrome" --args --user-data-dir=/tmp/bench --disable-gpu-vsync
 --disable-frame-rate-limit` on macOS.
 
+## Removing objects
+
+Projectiles and debris are removed once there are more than `maxObjects` objects (400), counting
+the level's blocks, which are never removed. Each frame, the excess shrink away over `fadeTime`
+(half a second), still colliding, and are then removed. The ones that go are the least noticeable,
+picked by these rules in turn, each only deciding between objects the rules before it found equal:
+
+1. Off screen before on screen
+2. At rest before moving
+3. Smaller on screen before larger: size divided by distance from the camera
+4. Older before newer
+
+The rules are `cullOrder`, and the limits are under `world` in `config.ts`. Reorder or leave out
+rules to change the order; objects the rules leave tied go oldest first. Anything that falls off
+the edge of the ground is removed at once.
+
 ## Deployment
 
 Pushes to `main` are built and deployed to GitHub Pages by `.github/workflows/deploy.yml`.
@@ -67,6 +83,7 @@ modules:
 | `graphics.ts`        | Renderer, camera, controls and lights; renders only when something changed |
 | `physics.ts`         | The Rapier physics world, and the only module that uses Rapier             |
 | `world.ts`           | Objects in the world, each a physics body drawn by the batch               |
+| `cull.ts`            | Which projectiles and debris to remove first, when there are too many      |
 | `batch.ts`           | Draws every object in one draw call, as instances of a `BatchedMesh`       |
 | `fracture.ts`        | Breaks objects that are hit harder than their break strength               |
 | `breaker.ts`         | Cuts an object into pieces, in a worker, or on the main thread if it fails |

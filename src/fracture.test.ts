@@ -175,3 +175,9 @@ test('breaks a rotated block as fully as an upright one', async () => {
     expect(upright).toBeGreaterThan(2);
     expect(rotated).toBe(upright);
 });
+
+test("doesn't break an object that's shrinking away", () => {
+    const block = addBlock(0.001);
+    world.fading.set(block, 0);
+    expect(fracture.canBreak(block)).toBe(false);
+});
