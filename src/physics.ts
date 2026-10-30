@@ -28,6 +28,7 @@ export class Physics {
     readonly impactNormal: Vector3;
     readonly dispatcher: Ammo.btCollisionDispatcher;
     readonly world: Ammo.btDiscreteDynamicsWorld;
+    readonly engineName = 'Ammo.js (Bullet)';
 
     constructor(ammo: typeof Ammo) {
         this.ammo = ammo;

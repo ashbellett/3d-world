@@ -33,3 +33,16 @@ canvas {
     background-color: #333;
     color: #fff;
 }
+
+.bench-result {
+    position: fixed;
+    top: 40px;
+    left: 8px;
+    margin: 0;
+    padding: 8px;
+    border-radius: 4px;
+    background-color: rgb(0 0 0 / 0.7);
+    font:
+        12px ui-monospace,
+        monospace;
+}

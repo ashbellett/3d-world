@@ -18,6 +18,7 @@ export class Graphics {
     readonly scene: Scene;
     // Whether the camera or canvas changed since the last render
     needsRender = true;
+    readonly backendName = 'WebGL 2 (WebGLRenderer)';
 
     constructor(container: HTMLElement) {
         this.renderer = new WebGLRenderer({ antialias: true });
