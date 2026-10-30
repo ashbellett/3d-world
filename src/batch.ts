@@ -10,8 +10,9 @@ const matrix = new Matrix4();
 const scale = new Vector3();
 
 // Draws many objects as one BatchedMesh, so they take one draw call rather than one each. Each
-// object is an instance of a geometry, with its own colour and transform. The batch grows when
-// it's full, and compacts its geometries when they've been removed and it runs out of room.
+// object is an instance of a geometry, with its own colour and transform. It has room for a fixed
+// number of instances. Its vertices grow when they run out, after compacting the room that
+// removed geometries left.
 export class Batch {
     readonly mesh: BatchedMesh;
     // How many vertices the mesh has room for, used or not, as BatchedMesh doesn't say
@@ -59,10 +60,19 @@ export class Batch {
         this.mesh.deleteGeometry(geometryId);
     }
 
+    // Whether there's no room for another instance. The batch doesn't grow its instances, as
+    // WebGPURenderer (three.js r186) keeps drawing, and drawing shadows, from the textures that
+    // growing replaces.
+    get full(): boolean {
+        return this.mesh.instanceCount >= this.mesh.maxInstanceCount;
+    }
+
+    // Throws if the batch is full
     addInstance(geometryId: number, colour: Color): number {
-        if (this.mesh.instanceCount >= this.mesh.maxInstanceCount) {
-            this.mesh.setInstanceCount(this.mesh.maxInstanceCount * 2);
-        }
+        if (this.full)
+            throw new Error(
+                `The batch has no room for more than ${this.mesh.maxInstanceCount} objects`,
+            );
         const instance = this.mesh.addInstance(geometryId);
         this.mesh.setColorAt(instance, colour);
         return instance;

@@ -51,12 +51,17 @@ test('sets an instance colour and transform', () => {
     actual.forEach((value, i) => expect(value).toBeCloseTo(expected.elements[i], 6));
 });
 
-test('grows when it runs out of instances', () => {
+test('has room for a fixed number of instances', () => {
     const batch = new Batch(material, { instances: 2, vertices: 100 });
     const geometryId = batch.addGeometry(box());
-    const instances = Array.from({ length: 5 }, () => batch.addInstance(geometryId, new Color()));
-    expect(new Set(instances).size).toBe(5);
-    expect(batch.mesh.maxInstanceCount).toBeGreaterThanOrEqual(5);
+    batch.addInstance(geometryId, new Color());
+    expect(batch.full).toBe(false);
+    const second = batch.addInstance(geometryId, new Color());
+    expect(batch.full).toBe(true);
+    expect(() => batch.addInstance(geometryId, new Color())).toThrow(/no room for more than 2/);
+    batch.removeInstance(second);
+    expect(batch.full).toBe(false);
+    expect(batch.mesh.maxInstanceCount).toBe(2);
 });
 
 test('reuses the room removed geometries leave', () => {
