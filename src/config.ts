@@ -79,7 +79,7 @@ export const config = {
         // Projectiles and debris are removed beyond this many objects, the least noticeable
         // first: in the order cullOrder's rules put them, as cull.ts describes. Reorder or
         // leave out rules to change it; whatever they leave tied goes oldest first.
-        maxObjects: 400,
+        maxObjects: 256,
         cullOrder: ['offScreen', 'resting', 'small', 'old'] as CullRule[],
         // Seconds a removed projectile or piece takes to shrink away, still colliding
         fadeTime: 0.5,

@@ -49,7 +49,7 @@ separate profile: `open -na "Google Chrome" --args --user-data-dir=/tmp/bench --
 
 ## Removing objects
 
-Projectiles and debris are removed once there are more than `maxObjects` objects (400), counting
+Projectiles and debris are removed once there are more than `maxObjects` objects (256), counting
 the level's blocks, which are never removed. Each frame, the excess shrink away over `fadeTime`
 (half a second), still colliding, and are then removed. The ones that go are the least noticeable,
 picked by these rules in turn, each only deciding between objects the rules before it found equal:
