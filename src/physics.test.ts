@@ -8,7 +8,7 @@ let physics: Physics;
 let nextId = 0;
 
 beforeEach(async () => {
-    physics = await Physics.create();
+    physics = new Physics();
 });
 
 function add(
@@ -220,7 +220,7 @@ describe('a projectile hitting a thin slab', () => {
         const { speed, radius, mass } = config.projectile;
         const missed: number[] = [];
         for (let i = 0; i < 20; i++) {
-            physics = await Physics.create();
+            physics = new Physics();
             const target = add(physics.createBoxShape(2, 4, 0.3), 35, new Vector3(), slab);
             const distance = 5 + (i * speed) / 60 / 20;
             add(physics.createSphereShape(radius), mass, new Vector3(0, 0, -distance), {

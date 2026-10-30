@@ -31,7 +31,7 @@ function showStartError(container: HTMLElement, error: unknown): void {
 
 async function start(container: HTMLElement): Promise<void> {
     // Rapier is a large download, so it loads while the renderer starts
-    const physicsReady = import('./physics.ts').then(({ Physics }) => Physics.create());
+    const physicsReady = import('./physics.ts').then(({ Physics }) => new Physics());
     const graphics = await Graphics.create(container, graphicsOptionsFromUrl());
     // Show the sky while the physics engine loads
     graphics.render(false);

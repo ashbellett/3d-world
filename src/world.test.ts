@@ -10,7 +10,7 @@ let physics: Physics;
 const material = new MeshBasicMaterial();
 
 beforeEach(async () => {
-    physics = await Physics.create();
+    physics = new Physics();
     world = new World(new Scene(), physics);
 });
 
