@@ -12,6 +12,7 @@ interface Impact {
     normal: Vector3;
 }
 
+const position = new Vector3();
 const inverse = new Quaternion();
 
 // Breaks breakable objects that are hit harder than their breakImpulse into debris. At most
@@ -57,9 +58,11 @@ export class Fracture {
     enqueue(id: number, impulse: number, point: Vector3, normal: Vector3): void {
         const mesh = this.world.get(id);
         if (!this.canBreak(mesh) || impulse <= mesh.userData.breakImpulse) return;
-        inverse.copy(mesh.quaternion).invert();
+        // Where the body was hit, rather than where the mesh is drawn, between steps
+        this.physics.readPose(mesh.userData.body, position, inverse);
+        inverse.invert();
         this.queue.set(mesh, {
-            point: point.clone().sub(mesh.position).applyQuaternion(inverse),
+            point: point.clone().sub(position).applyQuaternion(inverse),
             normal: normal.clone().applyQuaternion(inverse),
         });
     }
@@ -79,6 +82,9 @@ export class Fracture {
 
     shatter(mesh: WorldObject, { point, normal }: Impact): void {
         const data = mesh.userData;
+        // Breaks it where the body is, rather than where it's drawn, between steps, so the
+        // debris starts where the body was
+        this.physics.readPose(data.body, mesh.position, mesh.quaternion);
         point.applyQuaternion(mesh.quaternion).add(mesh.position);
         normal.applyQuaternion(mesh.quaternion);
         // The debris takes the object's velocity

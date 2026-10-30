@@ -36,9 +36,10 @@ URL to use WebGL 2 anyway.
 Add `?bench` to the URL to run a benchmark, for example
 [on the live site](https://ashbellett.github.io/3d-world/?bench), or
 [with WebGL 2](https://ashbellett.github.io/3d-world/?bench&backend=webgl). It fires a fixed,
-seeded series of shots at the Stack level, steps the physics by the same time every frame and
-renders every frame, then shows how long each stage of a frame took. The results are also logged to
-the console and stored as `window.benchResult`. Settings are under `bench` in `config.ts`.
+seeded series of shots at the Stack level, or another named like `?bench=Bridge`, steps the
+physics by the same time every frame and renders every frame, then shows how long each stage of a
+frame took and how many bodies the shots and breaks added. The results are also logged to the
+console and stored as `window.benchResult`. Settings are under `bench` in `config.ts`.
 
 For steady results, keep the tab in front and leave the camera alone while it runs, as the shots
 are aimed from it, and run it a few times. Frame times are limited by the display's refresh rate
