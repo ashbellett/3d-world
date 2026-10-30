@@ -64,7 +64,14 @@ async function start(container: HTMLElement): Promise<void> {
         // The bench renders every frame, so each run renders the same number of frames
         graphics.render(bench !== undefined || moved || removed);
         bench?.profiler.lap('render');
-        if (bench?.endFrame(world.objects.size, graphics.backendName, physics.engineName)) {
+        if (
+            bench?.endFrame(
+                world.objects.size,
+                world.nextId,
+                graphics.backendName,
+                physics.engineName,
+            )
+        ) {
             graphics.renderer.setAnimationLoop(null);
         }
     });

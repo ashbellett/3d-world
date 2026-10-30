@@ -60,21 +60,54 @@ describe('readTransform', () => {
 });
 
 describe('step', () => {
-    test("doesn't move anything for no time", () => {
+    const { timestep, maxSubSteps } = config.physics;
+
+    test("doesn't step for no time", () => {
         const { body } = add(physics.createSphereShape(0.5), 1, new Vector3(0, 10, 0));
         physics.step(0);
+        expect(physics.steps).toBe(0);
         expect(heightOf(body)).toBe(10);
     });
 
-    test('simulates at most maxSubSteps steps a frame', () => {
-        const { body } = add(physics.createSphereShape(0.5), 1, new Vector3(0, 10, 0));
+    test('takes one step a frame at the step rate', () => {
+        for (let i = 0; i < 600; i++) physics.step(timestep);
+        expect(physics.steps).toBe(600);
+    });
+
+    test('waits for a whole step', () => {
+        physics.step(timestep / 2);
+        expect(physics.steps).toBe(0);
+        physics.step(timestep / 2);
+        expect(physics.steps).toBe(1);
+    });
+
+    test('takes at most maxSubSteps steps a frame, and drops the rest', () => {
         physics.step(10);
-        const { gravity, timestep, maxSubSteps } = config.physics;
-        const time = timestep * maxSubSteps;
-        // Rapier's integrator falls a little further than the exact distance, a step's worth
-        const fallen = 10 - heightOf(body);
-        expect(fallen).toBeGreaterThan((gravity * time * time) / 2);
-        expect(fallen).toBeLessThan((gravity * time * (time + timestep)) / 2 + 1e-6);
+        expect(physics.steps).toBe(maxSubSteps);
+        physics.step(0);
+        expect(physics.steps).toBe(maxSubSteps);
+    });
+
+    test('draws a body where it starts', () => {
+        const { body } = add(physics.createSphereShape(0.5), 1, new Vector3(1, 10, 2));
+        physics.step(timestep / 2);
+        const position = new Vector3();
+        physics.readTransform(body, position, new Quaternion());
+        expect(position).toEqual(new Vector3(1, 10, 2));
+    });
+
+    test('draws a moving body between its last two steps', () => {
+        const { body } = add(physics.createSphereShape(0.5), 1, new Vector3(), {
+            velocity: new Vector3(6, 0, 0),
+        });
+        physics.world.gravity = { x: 0, y: 0, z: 0 };
+        physics.step(timestep * 2.25);
+        const exact = new Vector3();
+        physics.readPose(body, exact, new Quaternion());
+        expect(exact.x).toBeCloseTo(6 * timestep * 2);
+        const drawn = new Vector3();
+        physics.readTransform(body, drawn, new Quaternion());
+        expect(drawn.x).toBeCloseTo(6 * timestep * 1.25);
     });
 });
 
