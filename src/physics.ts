@@ -1,5 +1,5 @@
-import type { Quaternion } from 'three';
-import { Vector3 } from 'three';
+import type { Quaternion } from 'three/webgpu';
+import { Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
 
 // A body and the motion state it owns, as returned by Physics.addBody

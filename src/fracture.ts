@@ -1,5 +1,5 @@
-import type { Vector3 } from 'three';
-import { Quaternion } from 'three';
+import type { Vector3 } from 'three/webgpu';
+import { Quaternion } from 'three/webgpu';
 import { ConvexObjectBreaker } from 'three/addons/misc/ConvexObjectBreaker.js';
 import { config } from './config.ts';
 import type { ContactFilter, ImpactHandler, Physics } from './physics.ts';

@@ -1,6 +1,7 @@
-import { Timer } from 'three';
+import { Timer } from 'three/webgpu';
 import { Bench } from './bench.ts';
 import { Fracture } from './fracture.ts';
+import type { GraphicsOptions } from './graphics.ts';
 import { Graphics } from './graphics.ts';
 import { onCanvasClick } from './input.ts';
 import { Launcher } from './launcher.ts';
@@ -10,8 +11,16 @@ import { createLevelMenu } from './menu.ts';
 import { Physics } from './physics.ts';
 import { World } from './world.ts';
 
+// ?backend=webgl renders with WebGL 2 even where WebGPU is available, to compare the two
+function graphicsOptionsFromUrl(): GraphicsOptions {
+    const backend = new URLSearchParams(window.location.search).get('backend');
+    if (backend === null || backend === 'webgpu') return {};
+    if (backend === 'webgl') return { forceWebGL: true };
+    throw new Error(`Unknown backend "${backend}" in the URL: use webgpu or webgl`);
+}
+
 const container = document.getElementById('container')!;
-const graphics = new Graphics(container);
+const graphics = await Graphics.create(container, graphicsOptionsFromUrl());
 // Show the sky while the physics engine loads
 graphics.render(false);
 

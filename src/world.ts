@@ -1,5 +1,5 @@
-import type { BufferGeometry, Material, Scene } from 'three';
-import { Mesh, Vector3 } from 'three';
+import type { BufferGeometry, Material, Scene } from 'three/webgpu';
+import { Mesh, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
 import type { BodyHandle, Physics } from './physics.ts';
 

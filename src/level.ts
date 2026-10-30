@@ -1,4 +1,4 @@
-import type { BufferGeometry, Material } from 'three';
+import type { BufferGeometry, Material } from 'three/webgpu';
 import {
     BoxGeometry,
     CanvasTexture,
@@ -7,7 +7,7 @@ import {
     RepeatWrapping,
     SRGBColorSpace,
     Vector3,
-} from 'three';
+} from 'three/webgpu';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { config } from './config.ts';
 import type { BlockSpec, LevelSpec } from './levels.ts';

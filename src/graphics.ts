@@ -1,32 +1,43 @@
+import type { DirectionalLightShadow } from 'three/webgpu';
 import {
     AmbientLight,
     Color,
     DirectionalLight,
     PerspectiveCamera,
     Scene,
-    WebGLRenderer,
-} from 'three';
+    WebGPURenderer,
+} from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { config } from './config.ts';
 
+// WebGPU, or WebGL 2 where the browser has no WebGPU or forceWebGL is set
+export interface GraphicsOptions {
+    forceWebGL?: boolean;
+}
+
 // Renderer, camera, camera controls and lights. Only renders when something has changed.
+// Make one with Graphics.create, as the renderer starts asynchronously.
 export class Graphics {
-    readonly renderer: WebGLRenderer;
+    readonly renderer: WebGPURenderer;
     readonly canvas: HTMLCanvasElement;
     readonly camera: PerspectiveCamera;
     readonly controls: OrbitControls;
     readonly scene: Scene;
+    // The light's shadow, updated only when objects move, as the light doesn't
+    readonly shadow: DirectionalLightShadow;
     // Whether the camera or canvas changed since the last render
     needsRender = true;
-    readonly backendName = 'WebGL 2 (WebGLRenderer)';
 
-    constructor(container: HTMLElement) {
-        this.renderer = new WebGLRenderer({ antialias: true });
+    static async create(container: HTMLElement, options: GraphicsOptions = {}): Promise<Graphics> {
+        const graphics = new Graphics(container, options);
+        await graphics.renderer.init();
+        return graphics;
+    }
+
+    private constructor(container: HTMLElement, { forceWebGL = false }: GraphicsOptions) {
+        this.renderer = new WebGPURenderer({ antialias: true, forceWebGL });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.canvas.maxPixelRatio));
         this.renderer.shadowMap.enabled = true;
-        // The light doesn't move, so shadows only change when objects do
-        this.renderer.shadowMap.autoUpdate = false;
-        this.renderer.shadowMap.needsUpdate = true;
         this.canvas = this.renderer.domElement;
         container.appendChild(this.canvas);
 
@@ -42,13 +53,14 @@ export class Graphics {
 
         this.scene = new Scene();
         this.scene.background = new Color(config.background);
-        this.addLights();
+        this.shadow = this.addLights();
 
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
 
-    addLights(): void {
+    // Returns the directional light's shadow
+    addLights(): DirectionalLightShadow {
         const { ambient, directional } = config.lights;
         this.scene.add(new AmbientLight(ambient.colour, ambient.intensity));
 
@@ -66,7 +78,15 @@ export class Graphics {
         shadowCamera.far = directional.shadowFar;
         light.shadow.mapSize.setScalar(directional.shadowMapSize);
         light.shadow.normalBias = 0.02;
+        light.shadow.autoUpdate = false;
+        light.shadow.needsUpdate = true;
         this.scene.add(light);
+        return light.shadow;
+    }
+
+    // Which API the renderer uses. Only known once it has started.
+    get backendName(): string {
+        return 'isWebGPUBackend' in this.renderer.backend ? 'WebGPU' : 'WebGL 2 (WebGPURenderer)';
     }
 
     resize(): void {
@@ -81,7 +101,7 @@ export class Graphics {
     // Renders if the scene changed or the camera or canvas changed since the last render
     render(sceneChanged: boolean): void {
         if (sceneChanged) {
-            this.renderer.shadowMap.needsUpdate = true;
+            this.shadow.needsUpdate = true;
         } else if (!this.needsRender) {
             return;
         }

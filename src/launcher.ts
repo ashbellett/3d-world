@@ -1,5 +1,5 @@
-import type { Camera } from 'three';
-import { MeshPhongMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three';
+import type { Camera } from 'three/webgpu';
+import { MeshPhongMaterial, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
 import type { Physics } from './physics.ts';
 import type { World } from './world.ts';
