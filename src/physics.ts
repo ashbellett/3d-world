@@ -5,6 +5,19 @@ import { config } from './config.ts';
 
 export type { Shape };
 
+// How Physics.addBody makes a body. A mass of 0 makes it static. Impacts on it with an impulse
+// above impactThreshold are reported by forEachImpact. A continuous body is checked for
+// collisions along its path in each step, not only where it ends up, for small, fast bodies.
+export interface BodyOptions {
+    mass: number;
+    position: Vector3;
+    quaternion: Quaternion;
+    velocity: Vector3;
+    angularVelocity: Vector3;
+    impactThreshold?: number;
+    continuous?: boolean;
+}
+
 // A body and its collider, as returned by Physics.addBody
 export interface BodyHandle {
     body: RigidBody;
@@ -29,6 +42,35 @@ interface Impact {
 
 const translation = new Vector3();
 const rotation = new Quaternion();
+// Whether the coordinates' points (x, y, z, x, y, z, ...) spread more than minThickness from
+// every plane, rather than all lying near one plane, line or point
+export function spansVolume(coordinates: ArrayLike<number>, minThickness: number): boolean {
+    const points = Array.from(
+        { length: Math.floor(coordinates.length / 3) },
+        (_, i) => new Vector3(coordinates[i * 3], coordinates[i * 3 + 1], coordinates[i * 3 + 2]),
+    );
+    if (points.length < 4) return false;
+    const [origin] = points;
+    const offset = new Vector3();
+    const furthest = (distance: (point: Vector3) => number) =>
+        points.reduce(
+            (best, point) => {
+                const d = distance(point);
+                return d > best.distance ? { point, distance: d } : best;
+            },
+            { point: origin, distance: 0 },
+        );
+    // The point furthest from the first point, then from the line through those two, then from
+    // the plane through those three
+    const second = furthest((point) => point.distanceTo(origin));
+    if (second.distance <= minThickness) return false;
+    const direction = second.point.clone().sub(origin).normalize();
+    const third = furthest((point) => offset.subVectors(point, origin).cross(direction).length());
+    if (third.distance <= minThickness) return false;
+    const normal = direction.cross(third.point.clone().sub(origin)).normalize();
+    const fourth = furthest((point) => Math.abs(offset.subVectors(point, origin).dot(normal)));
+    return fourth.distance > minThickness;
+}
 
 // The Rapier physics world: the only module that uses Rapier. Each body has a numeric id, which
 // impacts report. Shapes can be shared by bodies. Make one with Physics.create, as Rapier's
@@ -59,32 +101,34 @@ export class Physics {
         return new RAPIER.Ball(radius);
     }
 
-    // Takes a geometry's position array. Throws if the points have no convex hull with volume.
+    // Takes a geometry's position array. Throws if the points are too flat to make a hull, as
+    // Rapier only computes the hull when a body uses the shape.
     createHullShape(positions: ArrayLike<number>): Shape {
-        const shape = new RAPIER.ConvexPolyhedron(Float32Array.from(positions), null);
-        // Rapier only computes the hull when a collider uses the shape, and fails then if it
-        // can't, so it's computed here first to fail before any collider is made
-        const hull = shape.intoRaw() as ReturnType<typeof shape.intoRaw> | undefined;
-        if (!hull) throw new Error('The points have no convex hull with volume');
-        hull.free();
-        return shape;
+        if (!spansVolume(positions, config.physics.minHullThickness)) {
+            throw new Error('The points are too flat to make a convex hull');
+        }
+        return new RAPIER.ConvexPolyhedron(Float32Array.from(positions), null);
     }
 
-    // Takes three.js vectors and a quaternion, and returns a handle for the other body methods.
-    // A mass of 0 makes the body static. Impacts on the body with an impulse above
-    // impactThreshold are reported by forEachImpact.
+    // Returns a handle for the other body methods
     addBody(
         id: number,
         shape: Shape,
-        mass: number,
-        position: Vector3,
-        quaternion: Quaternion,
-        velocity: Vector3,
-        angularVelocity: Vector3,
-        impactThreshold = Infinity,
+        {
+            mass,
+            position,
+            quaternion,
+            velocity,
+            angularVelocity,
+            impactThreshold = Infinity,
+            continuous = false,
+        }: BodyOptions,
     ): BodyHandle {
         const bodyDesc = mass === 0 ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic();
+        // Rapier misses hits between two bodies that both use continuous collision detection,
+        // so it's only for the bodies that need it
         bodyDesc
+            .setCcdEnabled(continuous)
             .setTranslation(position.x, position.y, position.z)
             .setRotation(quaternion)
             .setLinvel(velocity.x, velocity.y, velocity.z)
@@ -92,7 +136,7 @@ export class Physics {
         const body = this.world.createRigidBody(bodyDesc);
 
         const { friction, restitution, timestep } = config.physics;
-        // Multiplied, as Bullet does, rather than averaged
+        // Multiplied rather than averaged, as config.physics describes
         const colliderDesc = new RAPIER.ColliderDesc(shape)
             .setFriction(friction)
             .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Multiply)
@@ -135,8 +179,7 @@ export class Physics {
     }
 
     // Steps the world by delta seconds, in equal steps no longer than config.physics.timestep,
-    // and at most maxSubSteps of them. Unlike Bullet's fixed steps, which Ammo interpolated
-    // between, at a high refresh rate this takes one short step a frame.
+    // and at most maxSubSteps of them
     step(delta: number): void {
         this.impacts.length = 0;
         const { timestep, maxSubSteps } = config.physics;

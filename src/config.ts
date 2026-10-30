@@ -3,6 +3,9 @@
 export const config = {
     canvas: {
         maxPixelRatio: 2,
+        // Edges are smoothed (multisampled) below this pixel ratio. At or above it, the pixels
+        // are small enough to go without, which saves the GPU a lot of work.
+        antialiasBelowPixelRatio: 2,
     },
     camera: {
         fov: 60,
@@ -35,6 +38,8 @@ export const config = {
         // at a quarter of its speed
         friction: 0.5,
         restitution: 0.5,
+        // Hulls flatter than this, in metres, are refused, as they have no inertia to rotate with
+        minHullThickness: 0.001,
     },
     fracture: {
         // Each break takes a millisecond or two, so any more wait for later frames

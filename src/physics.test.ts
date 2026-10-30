@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { Quaternion, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
-import type { BodyHandle, Shape } from './physics.ts';
-import { Physics } from './physics.ts';
+import type { BodyHandle, BodyOptions, Shape } from './physics.ts';
+import { Physics, spansVolume } from './physics.ts';
 
 let physics: Physics;
 let nextId = 0;
@@ -15,20 +15,17 @@ function add(
     shape: Shape,
     mass: number,
     position: Vector3,
-    velocity = new Vector3(),
-    impactThreshold?: number,
+    { velocity = new Vector3(), ...options }: Partial<BodyOptions> = {},
 ): { id: number; body: BodyHandle } {
     const id = nextId++;
-    const body = physics.addBody(
-        id,
-        shape,
+    const body = physics.addBody(id, shape, {
         mass,
         position,
-        new Quaternion(),
+        quaternion: new Quaternion(),
         velocity,
-        new Vector3(),
-        impactThreshold,
-    );
+        angularVelocity: new Vector3(),
+        ...options,
+    });
     return { id, body };
 }
 
@@ -84,13 +81,10 @@ describe('step', () => {
 describe('impacts', () => {
     function impactsOf(threshold: number): number[] {
         addGround();
-        const box = add(
-            physics.createBoxShape(1, 1, 1),
-            1,
-            new Vector3(0, 0.6, 0),
-            new Vector3(0, -10, 0),
-            threshold,
-        );
+        const box = add(physics.createBoxShape(1, 1, 1), 1, new Vector3(0, 0.6, 0), {
+            velocity: new Vector3(0, -10, 0),
+            impactThreshold: threshold,
+        });
         const impulses: number[] = [];
         for (let i = 0; i < 10; i++) {
             physics.step(1 / 60);
@@ -117,7 +111,9 @@ describe('impacts', () => {
 
     test("doesn't report bodies without a threshold", () => {
         addGround();
-        add(physics.createBoxShape(1, 1, 1), 1, new Vector3(0, 0.6, 0), new Vector3(0, -10, 0));
+        add(physics.createBoxShape(1, 1, 1), 1, new Vector3(0, 0.6, 0), {
+            velocity: new Vector3(0, -10, 0),
+        });
         let count = 0;
         for (let i = 0; i < 10; i++) {
             physics.step(1 / 60);
@@ -137,14 +133,87 @@ test('removing a body wakes the bodies resting on it', () => {
     expect(top.body.body.isSleeping()).toBe(false);
 });
 
-describe('createHullShape', () => {
-    test('makes a shape from points around a volume', () => {
-        const tetrahedron = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1];
-        expect(physics.createHullShape(tetrahedron)).toBeDefined();
+describe('spansVolume', () => {
+    const tetrahedron = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1];
+
+    test('accepts points around a volume', () => {
+        expect(spansVolume(tetrahedron, 0.001)).toBe(true);
     });
 
-    test('throws for points on a line', () => {
-        const line = [0, 0, 0, 1, 0, 0, 2, 0, 0];
-        expect(() => physics.createHullShape(line)).toThrow(/convex hull/);
+    test('accepts a volume whatever order its points come in', () => {
+        const cube = [0, 1].flatMap((x) => [0, 1].flatMap((y) => [0, 1].flatMap((z) => [x, y, z])));
+        expect(spansVolume(cube, 0.001)).toBe(true);
+        expect(spansVolume([...cube].reverse(), 0.001)).toBe(true);
+    });
+
+    test('refuses fewer than four points', () => {
+        expect(spansVolume([0, 0, 0, 1, 0, 0, 0, 1, 0], 0.001)).toBe(false);
+    });
+
+    test('refuses points at one place', () => {
+        expect(spansVolume([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 0.001)).toBe(false);
+    });
+
+    test('refuses points on a line', () => {
+        expect(spansVolume([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3], 0.001)).toBe(false);
+    });
+
+    test('refuses points on a plane, at any angle', () => {
+        // The plane x + y + z = 1
+        expect(spansVolume([1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.5, 0], 0.001)).toBe(false);
+    });
+
+    test('refuses a volume thinner than the minimum', () => {
+        const sliver = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0.0005];
+        expect(spansVolume(sliver, 0.001)).toBe(false);
+        expect(spansVolume(sliver, 0.0001)).toBe(true);
+    });
+});
+
+describe('createHullShape', () => {
+    test('makes a shape from points around a volume', () => {
+        expect(physics.createHullShape([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1])).toBeDefined();
+    });
+
+    test('throws for flat points', () => {
+        const square = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0];
+        expect(() => physics.createHullShape(square)).toThrow(/too flat/);
+    });
+});
+
+describe('a projectile hitting a thin slab', () => {
+    // Starting at many distances, so it reaches the slab at every point in a step
+    async function misses(projectile: Partial<BodyOptions>, slab: Partial<BodyOptions> = {}) {
+        const { speed, radius, mass } = config.projectile;
+        const missed: number[] = [];
+        for (let i = 0; i < 20; i++) {
+            physics = await Physics.create();
+            const target = add(physics.createBoxShape(2, 4, 0.3), 35, new Vector3(), slab);
+            const distance = 5 + (i * speed) / 60 / 20;
+            add(physics.createSphereShape(radius), mass, new Vector3(0, 0, -distance), {
+                velocity: new Vector3(0, 0, speed),
+                ...projectile,
+            });
+            for (let step = 0; step < 30; step++) physics.step(1 / 60);
+            const velocity = new Vector3();
+            physics.readVelocity(target.body, velocity, new Vector3());
+            if (velocity.z < 0.1) missed.push(distance);
+        }
+        return missed;
+    }
+
+    test('hits it when continuous', async () => {
+        expect(await misses({ continuous: true })).toEqual([]);
+    });
+
+    test('can pass through it otherwise', async () => {
+        expect((await misses({})).length).toBeGreaterThan(0);
+    });
+
+    // A Rapier bug this works around: if it's fixed, the slab and debris can be continuous too
+    test('can pass through it when both are continuous', async () => {
+        expect((await misses({ continuous: true }, { continuous: true })).length).toBeGreaterThan(
+            0,
+        );
     });
 });

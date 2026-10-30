@@ -16,6 +16,7 @@ export interface BodyData {
 export interface AddOptions {
     transient?: boolean;
     sharedGeometry?: boolean;
+    continuous?: boolean;
 }
 
 // The fields World.add sets as well, described on World
@@ -57,6 +58,7 @@ export function createMesh(
 // - body: the body's handle from Physics.addBody
 // - transient: whether it's a projectile or debris, removed oldest first beyond maxObjects
 // - sharedGeometry: whether the geometry outlives the object
+// - continuous: whether it's small and fast, so collides along its path, as Physics describes
 export class World {
     readonly scene: Scene;
     readonly physics: Physics;
@@ -73,21 +75,20 @@ export class World {
     add(
         mesh: BodyMesh,
         shape: Shape,
-        { transient = false, sharedGeometry = false }: AddOptions = {},
+        { transient = false, sharedGeometry = false, continuous = false }: AddOptions = {},
     ): void {
         const data = mesh.userData;
         const id = this.nextId++;
-        const body = this.physics.addBody(
-            id,
-            shape,
-            data.mass,
-            mesh.position,
-            mesh.quaternion,
-            data.velocity,
-            data.angularVelocity,
-            data.breakImpulse,
-        );
-        Object.assign(data, { id, body, transient, sharedGeometry });
+        const body = this.physics.addBody(id, shape, {
+            mass: data.mass,
+            position: mesh.position,
+            quaternion: mesh.quaternion,
+            velocity: data.velocity,
+            angularVelocity: data.angularVelocity,
+            impactThreshold: data.breakImpulse,
+            continuous,
+        });
+        Object.assign(data, { id, body, transient, sharedGeometry, continuous });
         const object = mesh as WorldObject;
         object.castShadow = true;
         object.receiveShadow = true;
