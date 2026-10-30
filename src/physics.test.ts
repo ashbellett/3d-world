@@ -1,3 +1,4 @@
+import RAPIER from '@dimforge/rapier3d-simd';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { Quaternion, Vector3 } from 'three/webgpu';
 import { config } from './config.ts';
@@ -249,4 +250,11 @@ describe('a projectile hitting a thin slab', () => {
             0,
         );
     });
+});
+
+test("addBody says why Rapier couldn't make a collider, and leaves no body behind", () => {
+    // Points on a line, which createHullShape would refuse
+    const line = new RAPIER.ConvexPolyhedron(new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0]), null);
+    expect(() => add(line, 1, new Vector3())).toThrow(/couldn't make a collider for body/);
+    expect(physics.world.bodies.len()).toBe(0);
 });

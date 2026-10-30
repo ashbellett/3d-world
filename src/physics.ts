@@ -158,7 +158,16 @@ export class Physics {
                 .setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS)
                 .setContactForceEventThreshold(impactThreshold / timestep);
         }
-        const collider = this.world.createCollider(colliderDesc, body);
+        let collider: Collider;
+        try {
+            collider = this.world.createCollider(colliderDesc, body);
+        } catch (error) {
+            this.world.removeRigidBody(body);
+            const reason = error instanceof Error ? error.message : String(error);
+            throw new Error(`Rapier couldn't make a collider for body ${id}: ${reason}`, {
+                cause: error,
+            });
+        }
         this.ids.set(collider.handle, id);
         // As if it had been still before the last step, so it's drawn where it starts
         const handle: BodyHandle = {

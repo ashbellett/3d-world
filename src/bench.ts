@@ -1,6 +1,7 @@
 import { config } from './config.ts';
 import type { Stats } from './profiler.ts';
 import { Profiler, summarise } from './profiler.ts';
+import { seededRandom } from './random.ts';
 
 export interface BenchResult {
     renderer: string;
@@ -20,18 +21,6 @@ declare global {
     interface Window {
         benchResult?: BenchResult;
     }
-}
-
-// Mulberry32: a small seeded generator of numbers in [0, 1)
-export function seededRandom(seed: number): () => number {
-    let state = seed >>> 0;
-    return () => {
-        state = (state + 0x6d2b79f5) >>> 0;
-        let t = state;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
 }
 
 // A repeatable run for comparing renderers and physics engines, enabled by ?bench in the URL,
@@ -65,8 +54,8 @@ export class Bench {
         }
         const { seed } = config.bench;
         this.random = seededRandom(seed);
-        // ConvexObjectBreaker cuts at Math.random points. A separate generator from the shots',
-        // so the shots don't depend on how many breaks there were.
+        // Each break takes a seed from Math.random for where it cuts. A separate generator from
+        // the shots', so the shots don't depend on how many breaks there were.
         Math.random = seededRandom(seed + 1);
     }
 

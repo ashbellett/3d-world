@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { seededRandom } from './bench.ts';
+import { seededRandom } from './random.ts';
 
 test('a seed always gives the same numbers', () => {
     const a = seededRandom(1);

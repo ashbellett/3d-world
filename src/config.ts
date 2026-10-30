@@ -42,10 +42,13 @@ export const config = {
         minHullThickness: 0.001,
     },
     fracture: {
-        // Each break takes a millisecond or two, so any more wait for later frames
+        // Objects replaced by their pieces each frame. Each adds a few bodies, so any more wait
+        // for later frames.
         maxPerFrame: 2,
         radialIterations: 1,
         randomIterations: 2,
+        // Pieces' points closer together than this, in metres, are merged, as breaker.ts says
+        mergeDistance: 0.001,
     },
     projectile: {
         mass: 10,
